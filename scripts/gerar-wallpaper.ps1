@@ -20,3 +20,21 @@ $out = "$root\branding\wallpaper\viaunix-wallpaper.png"
 $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
 Copy-Item $out "$root\config\includes.chroot\usr\share\backgrounds\viaunix\viaunix-wallpaper.png" -Force
 Write-Host "Gerado: $out"
+
+# --- Derivados: GRUB (1920x1080) e logos redimensionados (Plymouth 400px, Calamares 256px/512px) ---
+function Redimensionar($src, $dst, $nw, $nh) {
+    $b = New-Object System.Drawing.Bitmap $nw, $nh
+    $gr = [System.Drawing.Graphics]::FromImage($b)
+    $gr.SmoothingMode = 'HighQuality'; $gr.InterpolationMode = 'HighQualityBicubic'
+    $gr.DrawImage($src, 0, 0, $nw, $nh); $gr.Dispose()
+    New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
+    $b.Save($dst, [System.Drawing.Imaging.ImageFormat]::Png); $b.Dispose()
+    Write-Host "Gerado: $dst"
+}
+$inc = "$root\config\includes.chroot"
+$wall = [System.Drawing.Image]::FromFile($out)
+Redimensionar $wall "$inc\usr\share\backgrounds\viaunix\grub.png" 1920 1080
+Redimensionar $logo "$inc\usr\share\plymouth\themes\viaunix\logo.png" 400 400
+Redimensionar $logo "$inc\etc\calamares\branding\viaunix\logo.png" 256 256
+Redimensionar $logo "$inc\etc\calamares\branding\viaunix\welcome.png" 512 512
+$wall.Dispose()

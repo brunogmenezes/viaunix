@@ -8,6 +8,13 @@ systemctl enable apparmor || true
 # Identidade visual (dconf): aplica padrões e travas
 dconf update
 
+# Boot splash (Plymouth) e Calamares com a marca ViaUnix
+plymouth-set-default-theme viaunix || true
+update-initramfs -u || true
+if [ -f /etc/calamares/settings.conf ]; then
+    sed -i 's/^branding:.*/branding: viaunix/' /etc/calamares/settings.conf
+fi
+
 # Locale pt-BR
 sed -i 's/^# *pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen

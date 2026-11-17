@@ -66,5 +66,9 @@ apparmor-profiles
 apparmor-utils
 
 # --- Instalador ---
+plymouth
+plymouth-themes
+grub-efi-amd64
+grub-pc
 calamares
 calamares-settings-debian

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=ViaUnix
+Description=Tela de boot do ViaUnix
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/viaunix
+ScriptFile=/usr/share/plymouth/themes/viaunix/viaunix.script
