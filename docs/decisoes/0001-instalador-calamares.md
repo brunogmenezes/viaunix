@@ -1,7 +1,7 @@
 # ADR 0001 – Instalador: Calamares
 
 - **Data:** 2026-11-17
-- **Status:** Proposta (aguardando confirmação)
+- **Status:** Aceita (2026-11-17)
 
 ## Contexto
 O instalador padrão do Debian (debian-installer) é em modo texto e em etapas pouco amigáveis. Queremos um instalador em formato wizard, voltado ao desktop corporativo.

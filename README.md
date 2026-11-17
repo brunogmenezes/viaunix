@@ -4,7 +4,7 @@ Distribuição desktop corporativa baseada em Debian 13 (Trixie), em pt-BR.
 
 ## Decisões iniciais (alteráveis)
 - Base: Debian 13, amd64, via `live-build` + instalador **Calamares** (wizard gráfico)
-- Desktop: XFCE (leve, estável, fácil de padronizar)
+- Desktop: GNOME (decisão do projeto, ver ADR 0002)
 - Pré-instalado: LibreOffice completo + pt-BR, OpenVPN (+ NetworkManager), firewall nftables, fail2ban, AppArmor
 - Firewall: `config/includes.chroot/etc/nftables.conf` (entrada negada por padrão)
 
@@ -17,6 +17,7 @@ Distribuição desktop corporativa baseada em Debian 13 (Trixie), em pt-BR.
 
 ## Build
 Em Linux como root, copie o projeto para `~/viaunix` e rode `sh scripts/build.sh`.
+Como montar a VM de build no VirtualBox: [docs/ambiente-de-build.md](docs/ambiente-de-build.md).
 Teste a ISO com QEMU/VirtualBox.
 
 ## Próximos passos

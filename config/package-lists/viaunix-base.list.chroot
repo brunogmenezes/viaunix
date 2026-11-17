@@ -17,11 +17,11 @@ firmware-atheros
 intel-microcode
 amd64-microcode
 
-# --- Desktop (XFCE) ---
-task-xfce-desktop
-lightdm
-lightdm-gtk-greeter
-xfce4-goodies
+# --- Desktop (GNOME) ---
+task-gnome-desktop
+gdm3
+gnome-tweaks
+gnome-shell-extensions
 network-manager-gnome
 gvfs-backends
 file-roller
