@@ -15,11 +15,12 @@ apt update && apt install -y git live-build sudo
 ```
 
 ## 3. Obter o projeto
-Após o repositório estar no GitHub:
+Repositório: https://github.com/brunogmenezes/viaunix
 ```sh
-git clone https://github.com/<usuario>/viaunix.git ~/viaunix
+git clone https://github.com/brunogmenezes/viaunix.git ~/viaunix
 cd ~/viaunix
 ```
+Para atualizar depois de novas correções: `cd ~/viaunix && git pull`.
 (Alternativa: pasta compartilhada do VirtualBox, mas copie para o disco da VM antes do build; **não** rode em pasta compartilhada.)
 
 ## 4. Gerar a ISO

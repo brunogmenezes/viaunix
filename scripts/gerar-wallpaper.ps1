@@ -1,4 +1,4 @@
-﻿# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
+# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
 # Uso (Windows): powershell -File scripts\gerar-wallpaper.ps1
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path -Parent $PSScriptRoot

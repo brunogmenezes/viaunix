@@ -7,6 +7,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ### Alterado
 - Desktop definido como GNOME em vez de XFCE (ADR 0002); Calamares confirmado (ADR 0001).
+- `docs/ambiente-de-build.md` com a URL real do repositório e instrução de `git pull`.
 
 ### Adicionado
 - Branding no boot (tema Plymouth `viaunix`), GRUB do sistema instalado (`/etc/default/grub.d/viaunix.cfg`) e Calamares (`/etc/calamares/branding/viaunix`, slideshow pt-BR). Ainda **não testado** em ISO.
