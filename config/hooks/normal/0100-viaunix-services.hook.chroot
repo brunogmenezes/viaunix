@@ -5,6 +5,9 @@ systemctl enable nftables || true
 systemctl enable fail2ban || true
 systemctl enable apparmor || true
 
+# Identidade visual (dconf): aplica padrões e travas
+dconf update
+
 # Locale pt-BR
 sed -i 's/^# *pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen

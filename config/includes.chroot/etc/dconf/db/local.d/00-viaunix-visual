@@ -1,0 +1,15 @@
+# ViaUnix - identidade visual padrão (travada em locks/00-viaunix)
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/viaunix/viaunix-wallpaper.png'
+picture-uri-dark='file:///usr/share/backgrounds/viaunix/viaunix-wallpaper.png'
+picture-options='zoom'
+primary-color='#0e284e'
+secondary-color='#050c1a'
+color-shading-type='vertical'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/viaunix/viaunix-wallpaper.png'
+picture-options='zoom'
+primary-color='#0e284e'
+secondary-color='#050c1a'
+color-shading-type='vertical'

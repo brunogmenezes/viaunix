@@ -1,0 +1,3 @@
+# Tela de login (GDM): logo do ViaUnix
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/viaunix-logo.png'

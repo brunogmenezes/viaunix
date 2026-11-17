@@ -1,0 +1,12 @@
+# Impede o usuário de alterar o papel de parede e a tela de bloqueio
+/org/gnome/desktop/background/picture-uri
+/org/gnome/desktop/background/picture-uri-dark
+/org/gnome/desktop/background/picture-options
+/org/gnome/desktop/background/primary-color
+/org/gnome/desktop/background/secondary-color
+/org/gnome/desktop/background/color-shading-type
+/org/gnome/desktop/screensaver/picture-uri
+/org/gnome/desktop/screensaver/picture-options
+/org/gnome/desktop/screensaver/primary-color
+/org/gnome/desktop/screensaver/secondary-color
+/org/gnome/desktop/screensaver/color-shading-type
