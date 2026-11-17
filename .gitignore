@@ -1,0 +1,12 @@
+*.iso
+*.img
+build.log
+/chroot/
+/binary/
+/cache/
+/.build/
+/live-image-*
+/*.contents
+/*.files
+/*.hybrid.iso
+/*.packages

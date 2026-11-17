@@ -1,0 +1,70 @@
+# --- Sistema base ---
+live-boot
+live-config
+live-config-systemd
+sudo
+curl
+wget
+git
+htop
+unzip
+p7zip-full
+firmware-linux
+firmware-misc-nonfree
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+intel-microcode
+amd64-microcode
+
+# --- Desktop (XFCE) ---
+task-xfce-desktop
+lightdm
+lightdm-gtk-greeter
+xfce4-goodies
+network-manager-gnome
+gvfs-backends
+file-roller
+evince
+firefox-esr
+firefox-esr-l10n-pt-br
+thunderbird
+thunderbird-l10n-pt-br
+
+# --- Idioma pt-BR ---
+locales
+task-brazilian-portuguese
+task-brazilian-portuguese-desktop
+hunspell-pt-br
+hyphen-pt-br
+mythes-pt-br
+
+# --- Escritório: LibreOffice completo ---
+libreoffice
+libreoffice-gtk3
+libreoffice-l10n-pt-br
+libreoffice-help-pt-br
+libreoffice-java-common
+libreoffice-script-provider-python
+default-jre
+fonts-crosextra-carlito
+fonts-crosextra-caladea
+fonts-liberation2
+fonts-noto
+
+# --- VPN ---
+openvpn
+network-manager-openvpn
+network-manager-openvpn-gnome
+openvpn-systemd-resolved
+
+# --- Firewall ---
+nftables
+fail2ban
+apparmor
+apparmor-profiles
+apparmor-utils
+
+# --- Instalador ---
+calamares
+calamares-settings-debian

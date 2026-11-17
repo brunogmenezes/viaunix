@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+# Ativa firewall e proteções no sistema instalado
+systemctl enable nftables || true
+systemctl enable fail2ban || true
+systemctl enable apparmor || true
+
+# Locale pt-BR
+sed -i 's/^# *pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+update-locale LANG=pt_BR.UTF-8 LANGUAGE=pt_BR:pt:en
+echo "America/Sao_Paulo" > /etc/timezone
+ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+echo 'XKBLAYOUT="br"' > /etc/default/keyboard
