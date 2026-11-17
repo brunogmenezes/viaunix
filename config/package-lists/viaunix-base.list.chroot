@@ -67,6 +67,8 @@ apparmor-utils
 plymouth
 plymouth-themes
 grub-efi-amd64
-grub-pc
+grub-pc-bin
+shim-signed
+efibootmgr
 calamares
 calamares-settings-debian
