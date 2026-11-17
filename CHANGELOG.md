@@ -5,6 +5,9 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+### Corrigido
+- Build: `--parent-archive-areas` com `non-free-firmware` (firmwares/microcode não eram encontrados); removidos `evince` e `network-manager-gnome` da lista (sem candidato no trixie; o `task-gnome-desktop` já traz leitor de PDF e integração de rede).
+
 ### Alterado
 - Desktop definido como GNOME em vez de XFCE (ADR 0002); Calamares confirmado (ADR 0001).
 - `docs/ambiente-de-build.md` com a URL real do repositório e instrução de `git pull`.

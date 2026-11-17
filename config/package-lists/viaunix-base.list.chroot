@@ -22,10 +22,8 @@ task-gnome-desktop
 gdm3
 gnome-tweaks
 gnome-shell-extensions
-network-manager-gnome
 gvfs-backends
 file-roller
-evince
 firefox-esr
 firefox-esr-l10n-pt-br
 thunderbird
