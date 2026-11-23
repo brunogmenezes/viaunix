@@ -14,9 +14,11 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ### Alterado
 - Desktop definido como GNOME em vez de XFCE (ADR 0002); Calamares confirmado (ADR 0001).
 - `docs/ambiente-de-build.md` com a URL real do repositório e instrução de `git pull`.
+- Firewall, branding, `os-release`/`issue` saíram de `includes.chroot` para pacotes; a ISO instala só `viaunix-base` + itens do Live/instalador. `build.sh` agora gera os `.deb`.
+- **Pré-requisito do build:** a chave pública do repositório precisa estar em `packages/viaunix-archive-keyring/usr/share/keyrings/` (ver docs).
 
 ### Adicionado
-- Live exclusivo para instalação: abre só o Calamares em tela cheia, sem desktop/terminal (ADR 0004). Fuso America/Sao_Paulo no Calamares e `systemd-timesyncd`. Ainda **não testado**.
+- Atualizações por APT (ADR 0005, `docs/atualizacoes.md`): pacotes `.deb` em `packages/` (`viaunix-base`, `-firewall`, `-branding`, `-release`, `-archive-keyring`), `repo.conf`, `scripts/build-packages.sh`, `scripts/publicar.sh`, `scripts/repo-server-setup.sh`. Ainda **não testado**.- Live exclusivo para instalação: abre só o Calamares em tela cheia, sem desktop/terminal (ADR 0004). Fuso America/Sao_Paulo no Calamares e `systemd-timesyncd`. Ainda **não testado**.
 - Branding no boot (tema Plymouth `viaunix`), GRUB do sistema instalado (`/etc/default/grub.d/viaunix.cfg`) e Calamares (`/etc/calamares/branding/viaunix`, slideshow pt-BR). Ainda **não testado** em ISO.
 - `gerar-wallpaper.ps1` agora também gera os derivados (GRUB, Plymouth, Calamares).
 - Hooks com permissão de execução registrada no Git.

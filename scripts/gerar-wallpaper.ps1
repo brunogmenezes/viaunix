@@ -1,4 +1,4 @@
-# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
+﻿# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
 # Uso (Windows): powershell -File scripts\gerar-wallpaper.ps1
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path -Parent $PSScriptRoot
@@ -18,7 +18,8 @@ $g.DrawImage($logo, $x, $y, $size, $size)
 $g.Dispose()
 $out = "$root\branding\wallpaper\viaunix-wallpaper.png"
 $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-Copy-Item $out "$root\config\includes.chroot\usr\share\backgrounds\viaunix\viaunix-wallpaper.png" -Force
+Copy-Item $out "$root\packages\viaunix-branding\usr\share\backgrounds\viaunix\viaunix-wallpaper.png" -Force
+Copy-Item "$root\branding\logo-jupiter.png" "$root\packages\viaunix-branding\usr\share\pixmaps\viaunix-logo.png" -Force
 Write-Host "Gerado: $out"
 
 # --- Derivados: GRUB (1920x1080) e logos redimensionados (Plymouth 400px, Calamares 256px/512px) ---
@@ -32,9 +33,10 @@ function Redimensionar($src, $dst, $nw, $nh) {
     Write-Host "Gerado: $dst"
 }
 $inc = "$root\config\includes.chroot"
+$brd = "$root\packages\viaunix-branding"
 $wall = [System.Drawing.Image]::FromFile($out)
-Redimensionar $wall "$inc\usr\share\backgrounds\viaunix\grub.png" 1920 1080
-Redimensionar $logo "$inc\usr\share\plymouth\themes\viaunix\logo.png" 400 400
+Redimensionar $wall "$brd\usr\share\backgrounds\viaunix\grub.png" 1920 1080
+Redimensionar $logo "$brd\usr\share\plymouth\themes\viaunix\logo.png" 400 400
 Redimensionar $logo "$inc\etc\calamares\branding\viaunix\logo.png" 256 256
 Redimensionar $logo "$inc\etc\calamares\branding\viaunix\welcome.png" 512 512
 $wall.Dispose()

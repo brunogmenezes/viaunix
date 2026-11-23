@@ -1,0 +1,10 @@
+Package: viaunix-archive-keyring
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: misc
+Priority: optional
+Depends: apt
+Description: Chave e fonte APT do repositorio ViaUnix
+ Instala a chave publica GPG e o arquivo viaunix.sources para que o sistema
+ receba as atualizacoes do ViaUnix via apt update/upgrade.

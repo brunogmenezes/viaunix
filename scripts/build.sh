@@ -8,6 +8,10 @@ apt-get install -y live-build debootstrap squashfs-tools xorriso qemu-system-x86
 # O live-build só executa scripts com permissão de execução
 chmod +x auto/* config/hooks/*/* 2>/dev/null || true
 
+# Gera os pacotes .deb do ViaUnix (usados pela ISO e publicados no repositório APT)
+apt-get install -y dpkg-dev
+sh scripts/build-packages.sh
+
 lb clean --purge || true
 lb config
 lb build 2>&1 | tee build.log

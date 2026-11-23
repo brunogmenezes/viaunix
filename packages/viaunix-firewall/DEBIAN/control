@@ -1,0 +1,10 @@
+Package: viaunix-firewall
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: admin
+Priority: optional
+Depends: nftables
+Description: Firewall padrao do ViaUnix (nftables)
+ Politica de entrada negada, saida liberada, ICMP limitado,
+ anti-spoofing e log com limite. Ver docs/firewall.md.

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    systemctl enable nftables >/dev/null 2>&1 || true
+    # Em sistema em execucao: valida e recarrega as regras (sem derrubar se invalido)
+    if [ -d /run/systemd/system ] && nft -c -f /etc/nftables.conf >/dev/null 2>&1; then
+        systemctl reload-or-restart nftables || true
+    fi
+fi
+exit 0

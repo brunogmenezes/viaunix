@@ -1,14 +1,25 @@
-# --- Sistema base ---
+# Tudo que define o ViaUnix (GNOME, LibreOffice, OpenVPN, firewall, branding...)
+# está no metapacote viaunix-base (packages/viaunix-base), atualizável via APT.
+# Aqui ficam apenas itens específicos da ISO/instalação.
+viaunix-base
+
+# --- Live / instalador (só ISO) ---
 live-boot
 live-config
 live-config-systemd
-sudo
-curl
-wget
-git
-htop
-unzip
-p7zip-full
+calamares
+calamares-settings-debian
+matchbox-window-manager
+x11-xserver-utils
+xorg
+
+# --- Boot/instalação no disco ---
+grub-efi-amd64
+grub-pc-bin
+shim-signed
+efibootmgr
+
+# --- Firmware e microcode (hardware) ---
 firmware-linux
 firmware-misc-nonfree
 firmware-iwlwifi
@@ -16,63 +27,3 @@ firmware-realtek
 firmware-atheros
 intel-microcode
 amd64-microcode
-
-# --- Desktop (GNOME) ---
-task-gnome-desktop
-gdm3
-gnome-tweaks
-gnome-shell-extensions
-gvfs-backends
-file-roller
-firefox-esr
-firefox-esr-l10n-pt-br
-thunderbird
-thunderbird-l10n-pt-br
-
-# --- Idioma pt-BR ---
-locales
-task-brazilian-portuguese
-task-brazilian-portuguese-desktop
-hunspell-pt-br
-hyphen-pt-br
-mythes-pt-br
-
-# --- Escritório: LibreOffice completo ---
-libreoffice
-libreoffice-gtk3
-libreoffice-l10n-pt-br
-libreoffice-help-pt-br
-libreoffice-java-common
-libreoffice-script-provider-python
-default-jre
-fonts-crosextra-carlito
-fonts-crosextra-caladea
-fonts-liberation2
-fonts-noto
-
-# --- VPN ---
-openvpn
-network-manager-openvpn
-network-manager-openvpn-gnome
-openvpn-systemd-resolved
-
-# --- Firewall ---
-nftables
-fail2ban
-apparmor
-apparmor-profiles
-apparmor-utils
-
-# --- Instalador ---
-matchbox-window-manager
-x11-xserver-utils
-xorg
-systemd-timesyncd
-plymouth
-plymouth-themes
-grub-efi-amd64
-grub-pc-bin
-shim-signed
-efibootmgr
-calamares
-calamares-settings-debian

@@ -1,0 +1,5 @@
+Types: deb
+URIs: @REPO_URL@
+Suites: @CODENAME@
+Components: main
+Signed-By: /usr/share/keyrings/viaunix-archive-keyring.gpg

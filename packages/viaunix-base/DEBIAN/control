@@ -1,0 +1,21 @@
+Package: viaunix-base
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: metapackages
+Priority: optional
+Depends: viaunix-archive-keyring, viaunix-release, viaunix-firewall, viaunix-branding,
+ task-gnome-desktop, gdm3, gnome-tweaks, gnome-shell-extensions, gvfs-backends,
+ file-roller, firefox-esr, firefox-esr-l10n-pt-br, thunderbird, thunderbird-l10n-pt-br,
+ locales, task-brazilian-portuguese, task-brazilian-portuguese-desktop,
+ hunspell-pt-br, hyphen-pt-br, mythes-pt-br,
+ libreoffice, libreoffice-gtk3, libreoffice-l10n-pt-br, libreoffice-help-pt-br,
+ libreoffice-java-common, libreoffice-script-provider-python, default-jre,
+ fonts-crosextra-carlito, fonts-crosextra-caladea, fonts-liberation2, fonts-noto,
+ openvpn, network-manager-openvpn, network-manager-openvpn-gnome, openvpn-systemd-resolved,
+ nftables, fail2ban, apparmor, apparmor-profiles, apparmor-utils,
+ systemd-timesyncd, sudo, curl, wget, git, htop, unzip, p7zip-full
+Description: Metapacote do ViaUnix (desktop corporativo)
+ Traz tudo que define o ViaUnix: GNOME pt-BR, LibreOffice completo, OpenVPN,
+ firewall, identidade visual e o repositorio de atualizacoes. Para adicionar
+ um aplicativo ao padrao do sistema, inclua-o em Depends e publique nova versao.

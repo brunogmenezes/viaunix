@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    dconf update || true
+    if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+        plymouth-set-default-theme viaunix || true
+        update-initramfs -u || true
+    fi
+    if command -v update-grub >/dev/null 2>&1; then
+        update-grub || true
+    fi
+fi
+exit 0

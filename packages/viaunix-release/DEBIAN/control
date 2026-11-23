@@ -1,0 +1,10 @@
+Package: viaunix-release
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: admin
+Priority: optional
+Depends: base-files
+Description: Identidade do sistema ViaUnix
+ Fornece /usr/lib/os-release e /etc/issue do ViaUnix, usando dpkg-divert
+ para substituir os arquivos do base-files.

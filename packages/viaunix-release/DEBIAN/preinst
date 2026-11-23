@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+    for f in /usr/lib/os-release /etc/issue; do
+        if ! dpkg-divert --list "$f" | grep -q "viaunix-release"; then
+            dpkg-divert --package viaunix-release --add --rename --divert "$f.distrib" "$f"
+        fi
+    done
+fi
+exit 0

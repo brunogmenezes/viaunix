@@ -10,3 +10,6 @@ build.log
 /*.files
 /*.hybrid.iso
 /*.packages
+/out/
+/build/
+/config/packages.chroot/*.deb
