@@ -23,26 +23,35 @@ Os pacotes ficam num repositório APT assinado (GPG) no servidor. Atualizações
 - **Subdomínio é opcional**, mas recomendado a longo prazo (ex.: `apt.suaempresa.com.br`, com HTTPS): se o IP mudar, é só atualizar o DNS; com IP fixo na ISO, as máquinas ficam presas a ele (ou precisam receber um pacote novo com a URL nova).
 
 ## Configuração inicial (uma vez)
-1. **No servidor** (como root), com o projeto clonado ou só o script copiado:
+**Caminho A (recomendado): o servidor puxa do Git e publica sozinho**
+1. No servidor, como root:
    ```sh
-   sh scripts/repo-server-setup.sh
+   apt-get install -y git
+   git clone https://github.com/brunogmenezes/viaunix.git /opt/viaunix
+   cd /opt/viaunix
+   sh scripts/repo-server-setup.sh     # cria o repositório e a chave GPG
+   sh scripts/publicar-local.sh        # puxa do Git, gera os .deb e publica
    ```
-   Cria o repositório (reprepro), gera a chave GPG e publica `viaunix-archive-keyring.gpg`.
-2. **Copie a chave pública para o projeto** (na VM de build) e faça commit:
+   (Se o repositório do GitHub for privado, o servidor precisa de credencial própria, ex.: *deploy key* somente leitura.)
+2. A cada atualização: faça push no Git e, no servidor, `cd /opt/viaunix && sh scripts/publicar-local.sh`.
+3. A chave pública precisa estar no projeto para gerar a **ISO**. O `publicar-local.sh` a copia para `packages/viaunix-archive-keyring/usr/share/keyrings/`; faça commit/push dela uma vez (`git add packages && git commit -m "feat(repo): chave publica" && git push`).
+4. **Faça backup da chave privada** do servidor (`gpg --export-secret-keys`). Quem a tem controla as atualizações de todas as máquinas.
+
+**Caminho B: publicar a partir da VM de build** (`scripts/publicar.sh`, via SSH/scp)
+1. Rode `scripts/repo-server-setup.sh` no servidor.
+2. Copie a chave pública para o projeto:
    ```sh
    scp root@172.16.152.2:/var/www/html/viaunix/apt/viaunix-archive-keyring.gpg \
        packages/viaunix-archive-keyring/usr/share/keyrings/
-   git add packages && git commit -m "feat(repo): chave publica do repositorio" && git push
+   git add packages && git commit -m "feat(repo): chave publica" && git push
    ```
-3. **Faça backup da chave privada** do servidor (`gpg --export-secret-keys`). Quem a tem controla as atualizações de todas as máquinas.
-4. **SSH sem senha** da VM de build para o servidor: `ssh-copy-id root@172.16.152.2`.
-5. **Publique a 1ª versão:** `sh scripts/publicar.sh`.
+3. `ssh-copy-id root@172.16.152.2` e depois `sh scripts/publicar.sh`.
 
 ## Rotina de atualização
 1. Altere o que for preciso (ex.: `packages/viaunix-firewall/etc/nftables.conf`).
 2. **Aumente a `Version`** do pacote alterado em `packages/<pacote>/DEBIAN/control` (ex.: `1.0.0` → `1.0.1`). Sem isso, o APT não vê atualização e o reprepro recusa.
 3. Registre no `CHANGELOG.md` e faça commit/push.
-4. Na VM de build: `git pull && sh scripts/publicar.sh`.
+4. Publique: no servidor `sh scripts/publicar-local.sh` (caminho A) ou, na VM de build, `git pull && sh scripts/publicar.sh` (caminho B).
 5. Nas máquinas: `sudo apt update && sudo apt upgrade` (use `full-upgrade` se o `viaunix-base` ganhar dependências novas).
 
 Para adicionar um aplicativo ao padrão do sistema: inclua-o em `Depends` do `viaunix-base`, aumente a versão e publique.

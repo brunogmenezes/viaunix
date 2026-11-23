@@ -18,6 +18,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 - **Pré-requisito do build:** a chave pública do repositório precisa estar em `packages/viaunix-archive-keyring/usr/share/keyrings/` (ver docs).
 
 ### Adicionado
+- `scripts/publicar-local.sh`: o servidor do repositório puxa do Git, gera os `.deb` e publica localmente (sem SSH/scp). Ainda **não testado**.
 - Atualizações por APT (ADR 0005, `docs/atualizacoes.md`): pacotes `.deb` em `packages/` (`viaunix-base`, `-firewall`, `-branding`, `-release`, `-archive-keyring`), `repo.conf`, `scripts/build-packages.sh`, `scripts/publicar.sh`, `scripts/repo-server-setup.sh`. Ainda **não testado**.- Live exclusivo para instalação: abre só o Calamares em tela cheia, sem desktop/terminal (ADR 0004). Fuso America/Sao_Paulo no Calamares e `systemd-timesyncd`. Ainda **não testado**.
 - Branding no boot (tema Plymouth `viaunix`), GRUB do sistema instalado (`/etc/default/grub.d/viaunix.cfg`) e Calamares (`/etc/calamares/branding/viaunix`, slideshow pt-BR). Ainda **não testado** em ISO.
 - `gerar-wallpaper.ps1` agora também gera os derivados (GRUB, Plymouth, Calamares).
