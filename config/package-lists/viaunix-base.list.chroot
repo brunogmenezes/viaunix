@@ -64,6 +64,10 @@ apparmor-profiles
 apparmor-utils
 
 # --- Instalador ---
+matchbox-window-manager
+x11-xserver-utils
+xorg
+systemd-timesyncd
 plymouth
 plymouth-themes
 grub-efi-amd64

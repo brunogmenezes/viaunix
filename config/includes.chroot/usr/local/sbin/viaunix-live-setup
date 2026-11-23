@@ -1,0 +1,43 @@
+#!/bin/sh
+# ViaUnix - prepara o boot do Live para abrir SOMENTE o instalador.
+# Roda apenas no Live (ver ConditionKernelCommandLine na unit) e escreve só em
+# áreas voláteis; por isso nada disto vai para o sistema instalado.
+set -e
+LIVEUSER=viaunix
+
+# Sessão gráfica dedicada ao instalador
+mkdir -p /usr/share/xsessions
+cat > /usr/share/xsessions/viaunix-installer.desktop <<EOF
+[Desktop Entry]
+Name=Instalador ViaUnix
+Comment=Instalacao do ViaUnix
+Exec=/usr/local/bin/viaunix-installer-session
+Type=Application
+EOF
+
+# Login automático do usuário live, em X11
+for f in /etc/gdm3/daemon.conf /etc/gdm3/custom.conf; do
+    mkdir -p /etc/gdm3
+    cat > "$f" <<EOF
+[daemon]
+WaylandEnable=false
+AutomaticLoginEnable=true
+AutomaticLogin=$LIVEUSER
+EOF
+done
+
+# Define a sessão padrão do usuário live
+mkdir -p /var/lib/AccountsService/users
+cat > /var/lib/AccountsService/users/$LIVEUSER <<EOF
+[User]
+Session=viaunix-installer
+XSession=viaunix-installer
+SystemAccount=false
+EOF
+
+# Impede usar o Live por outros meios: bloqueia senha e consoles de texto
+passwd -l "$LIVEUSER" || true
+for n in 2 3 4 5 6; do
+    systemctl mask --runtime "getty@tty$n.service" || true
+done
+systemctl mask --runtime autovt@.service || true

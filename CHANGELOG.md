@@ -16,6 +16,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 - `docs/ambiente-de-build.md` com a URL real do repositório e instrução de `git pull`.
 
 ### Adicionado
+- Live exclusivo para instalação: abre só o Calamares em tela cheia, sem desktop/terminal (ADR 0004). Fuso America/Sao_Paulo no Calamares e `systemd-timesyncd`. Ainda **não testado**.
 - Branding no boot (tema Plymouth `viaunix`), GRUB do sistema instalado (`/etc/default/grub.d/viaunix.cfg`) e Calamares (`/etc/calamares/branding/viaunix`, slideshow pt-BR). Ainda **não testado** em ISO.
 - `gerar-wallpaper.ps1` agora também gera os derivados (GRUB, Plymouth, Calamares).
 - Hooks com permissão de execução registrada no Git.

@@ -8,6 +8,10 @@ systemctl enable apparmor || true
 # Identidade visual (dconf): aplica padrões e travas
 dconf update
 
+# Sessão exclusiva do instalador (ativa só no Live, ver ADR 0004)
+systemctl enable viaunix-live-installer.service || true
+systemctl enable systemd-timesyncd || true
+
 # Boot splash (Plymouth) e Calamares com a marca ViaUnix
 plymouth-set-default-theme viaunix || true
 update-initramfs -u || true

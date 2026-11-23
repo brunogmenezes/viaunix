@@ -3,6 +3,8 @@ componentName: viaunix
 
 welcomeStyleCalamares: true
 welcomeExpandingLogo: true
+windowExpanding: fullscreen
+windowPlacement: center
 
 strings:
     productName:         ViaUnix

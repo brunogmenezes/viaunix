@@ -1,0 +1,11 @@
+#!/bin/sh
+# ViaUnix - sessão exclusiva do instalador (executada pelo GDM no modo Live).
+# Sem desktop, sem barra, sem terminal: apenas o Calamares em tela cheia.
+xset s off -dpms 2>/dev/null || true
+matchbox-window-manager -use_titlebar no -use_cursor yes &
+
+# Calamares precisa de root; o usuário live tem sudo sem senha (live-config).
+sudo -E calamares
+
+# Ao encerrar o instalador (concluído ou cancelado) reinicia o computador.
+sudo systemctl reboot
