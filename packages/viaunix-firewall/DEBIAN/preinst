@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# /etc/nftables.conf pertence ao pacote nftables do Debian: desvia o original
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+    if ! dpkg-divert --list /etc/nftables.conf | grep -q "viaunix-firewall"; then
+        dpkg-divert --package viaunix-firewall --add --rename --divert /etc/nftables.conf.distrib /etc/nftables.conf
+    fi
+fi
+exit 0

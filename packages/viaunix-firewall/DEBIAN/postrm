@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ] || [ "$1" = purge ] || [ "$1" = disappear ]; then
+    if dpkg-divert --list /etc/nftables.conf | grep -q "viaunix-firewall"; then
+        dpkg-divert --package viaunix-firewall --remove --rename /etc/nftables.conf
+    fi
+fi
+exit 0
