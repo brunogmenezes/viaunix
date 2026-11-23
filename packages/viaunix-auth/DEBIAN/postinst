@@ -8,6 +8,10 @@ if [ "$1" = configure ]; then
     if command -v pam-auth-update >/dev/null 2>&1; then
         DEBIAN_FRONTEND=noninteractive pam-auth-update --package --enable viaunix-auth || true
     fi
+    # Permite 1o login de usuario ainda inexistente no /etc/passwd sem liberar root no GDM
+    if [ -f /etc/pam.d/gdm-password ]; then
+        sed -i -E 's|^auth[[:space:]]+required[[:space:]]+pam_succeed_if\.so[[:space:]]+user != root quiet_success|auth    [success=ok user_unknown=ignore default=bad]    pam_succeed_if.so user != root quiet_success|' /etc/pam.d/gdm-password
+    fi
     if command -v dconf >/dev/null 2>&1; then
         dconf update || true
     fi

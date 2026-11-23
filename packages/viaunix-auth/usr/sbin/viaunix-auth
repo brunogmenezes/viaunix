@@ -30,7 +30,7 @@ import urllib.request
 CONF_PATH = "/etc/viaunix/auth.conf"
 CACHE_DIR = "/var/lib/viaunix-auth"
 CACHE_PATH = os.path.join(CACHE_DIR, "cache.json")
-USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{0,63}$")
 
 DEFAULTS = {
     "API_URL": "https://api.jupiter.com.br/action/Usuario/logar",
@@ -148,12 +148,15 @@ def ensure_local_user(user: str, groups_csv: str) -> bool:
         except KeyError:
             continue
 
-    cmd = ["useradd", "-m", "-s", "/bin/bash"]
+    cmd = ["useradd", "--badname", "-m", "-s", "/bin/bash"]
     if valid_groups:
         cmd += ["-G", ",".join(valid_groups)]
     cmd.append(user)
 
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res.returncode != 0 and "--badname" in res.stderr:
+        cmd.remove("--badname")
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
         log(syslog.LOG_ERR, f"falha ao criar usuario local '{user}': {res.stderr.strip()}")
         return False
@@ -215,7 +218,14 @@ def main() -> int:
         raw = sys.stdin.buffer.read()
         password = raw.rstrip(b"\x00").decode("utf-8", errors="replace")
 
-    if not user or not password or not USER_RE.fullmatch(user):
+    if not user:
+        log(syslog.LOG_WARNING, "PAM_USER vazio")
+        return 1
+    if not password:
+        log(syslog.LOG_WARNING, f"senha vazia recebida do PAM para '{user}'")
+        return 1
+    if not USER_RE.fullmatch(user):
+        log(syslog.LOG_WARNING, f"nome de usuario fora do padrao aceito: '{user}'")
         return 1
 
     local_only = {u.strip() for u in cfg.get("LOCAL_ONLY_USERS", "root").split(",") if u.strip()}
@@ -268,4 +278,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        log(syslog.LOG_ERR, f"erro inesperado no viaunix-auth: {exc}")
+        sys.exit(1)

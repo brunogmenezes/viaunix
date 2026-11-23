@@ -4,5 +4,8 @@ if [ "$1" = remove ] || [ "$1" = deconfigure ]; then
     if command -v pam-auth-update >/dev/null 2>&1; then
         DEBIAN_FRONTEND=noninteractive pam-auth-update --package --remove viaunix-auth || true
     fi
+    if [ -f /etc/pam.d/gdm-password ]; then
+        sed -i -E 's|^auth[[:space:]]+\[success=ok user_unknown=ignore default=bad\][[:space:]]+pam_succeed_if\.so[[:space:]]+user != root quiet_success|auth    required        pam_succeed_if.so user != root quiet_success|' /etc/pam.d/gdm-password
+    fi
 fi
 exit 0

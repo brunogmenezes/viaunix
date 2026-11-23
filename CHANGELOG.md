@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- `viaunix-auth` 1.0.1: ajusta `pam_succeed_if` em `/etc/pam.d/gdm-password` para ignorar `user_unknown` no 1º login de usuários da API (sem liberar `root`), adiciona `useradd --badname` para nomes com maiúsculas (ex.: `Brunog`) e registra no syslog qualquer saída antecipada/erro.
 - Publicação: `scripts/repo-incluir.sh` publica só pacotes com versão nova (antes o reprepro recusava os `.deb` recompilados com mesma versão) e sempre exporta o índice.
 - `viaunix-firewall` 1.0.1: usa `dpkg-divert` para `/etc/nftables.conf` (conflito com o pacote `nftables` ao instalar).
 - `repo-server-setup.sh`: `Architectures` do reprepro sem `all` (erro "contains an architecture called 'all'"); pacotes `all` já são aceitos.
