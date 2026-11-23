@@ -1,0 +1,11 @@
+Package: viaunix-auth
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: admin
+Priority: optional
+Depends: python3, libpam-modules, libpam-runtime, ca-certificates, dconf-cli
+Description: Autenticacao de usuarios do ViaUnix via API Jupiter
+ Integra o PAM (login grafico GDM, bloqueio de tela, SSH) a API
+ https://api.jupiter.com.br/action/Usuario/logar, com criacao automatica
+ de usuario local sem sudo e cache offline opcional com revogacao.

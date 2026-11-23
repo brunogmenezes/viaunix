@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""ViaUnix PAM authentication helper (API Jupiter).
+
+Chamado pelo pam_exec.so (com expose_authtok) apos pam_unix:
+- Contas locais (root, UID < 1000, ou com senha local) continuam funcionando pelo pam_unix.
+- Usuarios da API sao validados em POST API_URL com {"usuario", "senha"}.
+- No primeiro login valido, cria o usuario Linux local (sem sudo, senha local travada).
+- Mantem cache offline seguro (scrypt) com revogacao imediata se a API recusar online.
+
+Teste manual como root:
+    viaunix-auth --test <usuario>
+"""
+
+import getpass
+import grp
+import hashlib
+import hmac
+import json
+import os
+import pwd
+import re
+import ssl
+import subprocess
+import sys
+import syslog
+import time
+import urllib.error
+import urllib.request
+
+CONF_PATH = "/etc/viaunix/auth.conf"
+CACHE_DIR = "/var/lib/viaunix-auth"
+CACHE_PATH = os.path.join(CACHE_DIR, "cache.json")
+USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+DEFAULTS = {
+    "API_URL": "https://api.jupiter.com.br/action/Usuario/logar",
+    "TIMEOUT": "10",
+    "AUTO_CREATE_USER": "true",
+    "USER_GROUPS": "users,audio,video,plugdev,netdev",
+    "ALLOW_OFFLINE_CACHE": "true",
+    "VERIFY_TLS": "true",
+    "LOCAL_ONLY_USERS": "root",
+}
+
+
+def log(priority: int, msg: str) -> None:
+    syslog.openlog("viaunix-auth", syslog.LOG_PID, syslog.LOG_AUTH)
+    syslog.syslog(priority, msg)
+
+
+def load_config() -> dict:
+    cfg = dict(DEFAULTS)
+    if not os.path.isfile(CONF_PATH):
+        return cfg
+    try:
+        with open(CONF_PATH, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                cfg[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError as exc:
+        log(syslog.LOG_WARNING, f"erro lendo {CONF_PATH}: {exc}")
+    return cfg
+
+
+def as_bool(val: str) -> bool:
+    return val.strip().lower() in ("1", "true", "yes", "on", "sim")
+
+
+def load_cache() -> dict:
+    if not os.path.isfile(CACHE_PATH):
+        return {}
+    try:
+        with open(CACHE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_cache(data: dict) -> None:
+    try:
+        os.makedirs(CACHE_DIR, mode=0o700, exist_ok=True)
+        os.chmod(CACHE_DIR, 0o700)
+        tmp = f"{CACHE_PATH}.tmp.{os.getpid()}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, CACHE_PATH)
+    except OSError as exc:
+        log(syslog.LOG_WARNING, f"erro salvando cache offline: {exc}")
+
+
+def hash_password(password: str, salt: bytes) -> bytes:
+    return hashlib.scrypt(password.encode("utf-8"), salt=salt, n=2**14, r=8, p=1, dklen=32)
+
+
+def update_cache(user: str, password: str) -> None:
+    cache = load_cache()
+    salt = os.urandom(16)
+    digest = hash_password(password, salt)
+    cache[user] = {
+        "salt": salt.hex(),
+        "hash": digest.hex(),
+        "updated_at": int(time.time()),
+    }
+    save_cache(cache)
+
+
+def revoke_cache(user: str) -> None:
+    cache = load_cache()
+    if user in cache:
+        del cache[user]
+        save_cache(cache)
+
+
+def check_cache(user: str, password: str) -> bool:
+    cache = load_cache()
+    entry = cache.get(user)
+    if not isinstance(entry, dict):
+        return False
+    try:
+        salt = bytes.fromhex(entry["salt"])
+        expected = bytes.fromhex(entry["hash"])
+    except (KeyError, ValueError):
+        return False
+    actual = hash_password(password, salt)
+    return hmac.compare_digest(actual, expected)
+
+
+def ensure_local_user(user: str, groups_csv: str) -> bool:
+    try:
+        pwd.getpwnam(user)
+        return True
+    except KeyError:
+        pass
+
+    valid_groups = []
+    for g in groups_csv.split(","):
+        g = g.strip()
+        if not g or g == "sudo":
+            continue
+        try:
+            grp.getgrnam(g)
+            valid_groups.append(g)
+        except KeyError:
+            continue
+
+    cmd = ["useradd", "-m", "-s", "/bin/bash"]
+    if valid_groups:
+        cmd += ["-G", ",".join(valid_groups)]
+    cmd.append(user)
+
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res.returncode != 0:
+        log(syslog.LOG_ERR, f"falha ao criar usuario local '{user}': {res.stderr.strip()}")
+        return False
+
+    log(syslog.LOG_INFO, f"usuario local '{user}' criado automaticamente (sem sudo)")
+    return True
+
+
+def authenticate_api(cfg: dict, user: str, password: str) -> str:
+    """Retorna 'ok', 'denied' ou 'network_error'."""
+    url = cfg["API_URL"]
+    timeout = float(cfg.get("TIMEOUT", "10") or "10")
+    payload = json.dumps({"usuario": user, "senha": password}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "ViaUnix-Auth/1.0",
+        },
+    )
+    ctx = ssl.create_default_context()
+    if not as_bool(cfg.get("VERIFY_TLS", "true")):
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            status = getattr(resp, "status", 200)
+            body = resp.read().decode("utf-8", errors="replace")
+            if status != 200:
+                return "denied" if 400 <= status < 500 else "network_error"
+            data = json.loads(body)
+            token = data.get("accessToken") if isinstance(data, dict) else None
+            if isinstance(token, str) and token.strip():
+                return "ok"
+            return "denied"
+    except urllib.error.HTTPError as exc:
+        if 400 <= exc.code < 500:
+            return "denied"
+        log(syslog.LOG_WARNING, f"API retornou HTTP {exc.code} para '{user}'")
+        return "network_error"
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        log(syslog.LOG_WARNING, f"API indisponivel para '{user}': {exc}")
+        return "network_error"
+
+
+def main() -> int:
+    test_mode = len(sys.argv) >= 3 and sys.argv[1] == "--test"
+    cfg = load_config()
+
+    if test_mode:
+        user = sys.argv[2].strip()
+        password = getpass.getpass(f"Senha para {user}: ")
+    else:
+        user = os.environ.get("PAM_USER", "").strip()
+        raw = sys.stdin.buffer.read()
+        password = raw.rstrip(b"\x00").decode("utf-8", errors="replace")
+
+    if not user or not password or not USER_RE.fullmatch(user):
+        return 1
+
+    local_only = {u.strip() for u in cfg.get("LOCAL_ONLY_USERS", "root").split(",") if u.strip()}
+    if user in local_only:
+        return 1
+
+    # Contas de sistema (UID < 1000) nunca consultam a API
+    try:
+        pw = pwd.getpwnam(user)
+        if pw.pw_uid < 1000:
+            return 1
+    except KeyError:
+        pw = None
+
+    result = authenticate_api(cfg, user, password)
+
+    if result == "ok":
+        if pw is None:
+            if not as_bool(cfg.get("AUTO_CREATE_USER", "true")):
+                log(syslog.LOG_WARNING, f"'{user}' aprovado na API mas AUTO_CREATE_USER=false")
+                return 1
+            if not test_mode and not ensure_local_user(user, cfg.get("USER_GROUPS", "")):
+                return 1
+        if as_bool(cfg.get("ALLOW_OFFLINE_CACHE", "true")) and not test_mode:
+            update_cache(user, password)
+        log(syslog.LOG_INFO, f"autenticacao aprovada via API para '{user}'")
+        if test_mode:
+            print("OK: API aprovou o usuario (accessToken recebido).")
+        return 0
+
+    if result == "denied":
+        if not test_mode:
+            revoke_cache(user)
+        log(syslog.LOG_NOTICE, f"autenticacao recusada pela API para '{user}'")
+        if test_mode:
+            print("NEGADO: credenciais recusadas pela API.")
+        return 1
+
+    # Erro de rede/timeout: tenta cache offline apenas se usuario ja existe localmente
+    if pw is not None and as_bool(cfg.get("ALLOW_OFFLINE_CACHE", "true")):
+        if check_cache(user, password):
+            log(syslog.LOG_INFO, f"autenticacao aprovada via cache offline para '{user}'")
+            if test_mode:
+                print("OK (OFFLINE): validado pelo cache local.")
+            return 0
+
+    if test_mode:
+        print("ERRO: API indisponivel e sem cache offline valido.")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

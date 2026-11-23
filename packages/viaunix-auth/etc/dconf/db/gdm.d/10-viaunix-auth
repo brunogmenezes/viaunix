@@ -1,0 +1,3 @@
+# ViaUnix - exibe campo direto de usuario e senha no login (sem lista local)
+[org/gnome/login-screen]
+disable-user-list=true

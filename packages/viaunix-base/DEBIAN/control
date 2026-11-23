@@ -1,10 +1,10 @@
 Package: viaunix-base
-Version: 1.0.0
+Version: 1.0.1
 Architecture: all
 Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
 Section: metapackages
 Priority: optional
-Depends: viaunix-archive-keyring, viaunix-release, viaunix-firewall, viaunix-branding,
+Depends: viaunix-archive-keyring, viaunix-release, viaunix-firewall, viaunix-branding, viaunix-auth,
  task-gnome-desktop, gdm3, gnome-tweaks, gnome-shell-extensions, gvfs-backends,
  file-roller, firefox-esr, firefox-esr-l10n-pt-br, thunderbird, thunderbird-l10n-pt-br,
  locales, task-brazilian-portuguese, task-brazilian-portuguese-desktop,

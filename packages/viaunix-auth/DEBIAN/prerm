@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ] || [ "$1" = deconfigure ]; then
+    if command -v pam-auth-update >/dev/null 2>&1; then
+        DEBIAN_FRONTEND=noninteractive pam-auth-update --package --remove viaunix-auth || true
+    fi
+fi
+exit 0
