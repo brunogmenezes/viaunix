@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- Publicação: `scripts/repo-incluir.sh` publica só pacotes com versão nova (antes o reprepro recusava os `.deb` recompilados com mesma versão) e sempre exporta o índice.
 - `viaunix-firewall` 1.0.1: usa `dpkg-divert` para `/etc/nftables.conf` (conflito com o pacote `nftables` ao instalar).
 - `repo-server-setup.sh`: `Architectures` do reprepro sem `all` (erro "contains an architecture called 'all'"); pacotes `all` já são aceitos.
 - Instalador: falha "Erro do Gerenciador de Pacotes" (apt remove, código 100) ao remover pacotes live. Adicionado `etc/calamares/modules/packages.conf` próprio, sem `live-task-*`.

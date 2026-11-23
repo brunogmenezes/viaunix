@@ -10,6 +10,6 @@ cd "$(dirname "$0")/.."
 sh scripts/build-packages.sh
 
 ssh "$REPO_SERVER" "mkdir -p $REPO_BASE/incoming"
-scp out/debs/*.deb "$REPO_SERVER:$REPO_BASE/incoming/"
-ssh "$REPO_SERVER" "reprepro -b $REPO_BASE includedeb $CODENAME $REPO_BASE/incoming/*.deb && rm -f $REPO_BASE/incoming/*.deb"
+scp out/debs/*.deb scripts/repo-incluir.sh "$REPO_SERVER:$REPO_BASE/incoming/"
+ssh "$REPO_SERVER" "sh $REPO_BASE/incoming/repo-incluir.sh $REPO_BASE $CODENAME $REPO_BASE/incoming/*.deb && rm -f $REPO_BASE/incoming/*.deb"
 echo "Publicado. Nas máquinas: apt update && apt upgrade"

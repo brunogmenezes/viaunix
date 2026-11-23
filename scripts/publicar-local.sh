@@ -18,5 +18,5 @@ if [ ! -s "$KEY" ] && [ -s "$REPO_WEB_DIR/viaunix-archive-keyring.gpg" ]; then
 fi
 
 sh scripts/build-packages.sh
-reprepro -b "$REPO_BASE" includedeb "$CODENAME" out/debs/*.deb
+sh scripts/repo-incluir.sh "$REPO_BASE" "$CODENAME" out/debs/*.deb
 echo "Publicado. Nas máquinas: apt update && apt upgrade"
