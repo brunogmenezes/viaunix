@@ -27,7 +27,7 @@ Origin: ViaUnix
 Label: ViaUnix
 Suite: stable
 Codename: $CODENAME
-Architectures: amd64 all
+Architectures: amd64
 Components: main
 Description: Repositorio de atualizacoes do ViaUnix
 SignWith: $KEYID
