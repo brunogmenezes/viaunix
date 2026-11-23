@@ -148,15 +148,17 @@ def ensure_local_user(user: str, groups_csv: str) -> bool:
         except KeyError:
             continue
 
-    cmd = ["useradd", "--badname", "-m", "-s", "/bin/bash"]
+    cmd = ["/usr/sbin/useradd", "--badname", "-m", "-s", "/bin/bash"]
     if valid_groups:
         cmd += ["-G", ",".join(valid_groups)]
     cmd.append(user)
 
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    env = dict(os.environ)
+    env["PATH"] = "/usr/sbin:/sbin:/usr/bin:/bin"
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     if res.returncode != 0 and "--badname" in res.stderr:
         cmd.remove("--badname")
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     if res.returncode != 0:
         log(syslog.LOG_ERR, f"falha ao criar usuario local '{user}': {res.stderr.strip()}")
         return False
