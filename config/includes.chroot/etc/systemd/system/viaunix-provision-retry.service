@@ -1,0 +1,12 @@
+[Unit]
+Description=ViaUnix: reenvio de credenciais de provisionamento ao servidor
+ConditionPathExists=/var/lib/viaunix-provision/pending.json
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/viaunix-provision --retry
+
+[Install]
+WantedBy=multi-user.target

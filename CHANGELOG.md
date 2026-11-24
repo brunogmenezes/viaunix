@@ -23,6 +23,8 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 - **Pré-requisito do build:** a chave pública do repositório precisa estar em `packages/viaunix-archive-keyring/usr/share/keyrings/` (ver docs).
 
 ### Adicionado
+- Provisionamento automático no Calamares (`docs/provisionamento.md`): remove a tela de usuário/hostname/senha, gera credenciais aleatórias únicas (`viaunix-XXXXXX`, `adm-XXXXXX`, senhas fortes) e envia ao servidor `172.16.152.2:8088` (`scripts/provision-server-setup.sh`, `viaunix-maquinas`), com fila de reenvio offline (`viaunix-provision-retry.service`). Ainda **não testado**.
+- Tela de login GDM (`viaunix-branding` 1.0.2): remove o logo do Debian 13, aplica o logo ViaUnix (`viaunix-gdm-logo.png` 96×96) + o mesmo papel de parede da área de trabalho no fundo do GDM (`viaunix-gdm-theme` via `gdm-theme.gresource`) e trava `disable-user-list=true` (campo de usuário sempre vazio para estação compartilhada). Ainda **não testado**.
 - Google Chrome (`google-chrome-stable`) incluído automaticamente no repositório APT e na ISO via `scripts/baixar-chrome.sh` (`viaunix-base` 1.0.2).
 - Atalho automático do Google Chrome na Área de Trabalho no GNOME (`viaunix-branding` 1.0.1): instala/habilita a extensão `gnome-shell-extension-desktop-icons-ng` (`ding@rastersoft.com`) e cria/confia o atalho em `Área de trabalho` via autostart XDG para usuários novos e existentes. Ainda **não testado**.
 - Autenticação externa via API Júpiter (`viaunix-auth` 1.0.0, ADR 0006, `docs/autenticacao.md`): PAM (`pam-auth-update` + `pam_exec`), criação automática de usuário sem `sudo`, cache offline com `scrypt` e revogação, e login direto sem lista no GDM. Incluído em `viaunix-base` 1.0.1. Ainda **não testado**.

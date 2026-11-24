@@ -1,3 +1,4 @@
-# Tela de login (GDM): logo do ViaUnix
+# ViaUnix - tela de login (GDM): logo ViaUnix e campo de usuario sempre vazio
 [org/gnome/login-screen]
-logo='/usr/share/pixmaps/viaunix-logo.png'
+logo='/usr/share/pixmaps/viaunix-gdm-logo.png'
+disable-user-list=true

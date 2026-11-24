@@ -1,4 +1,4 @@
-# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
+﻿# Gera o papel de parede padrão do ViaUnix (3840x2160) a partir do logo.
 # Uso (Windows): powershell -File scripts\gerar-wallpaper.ps1
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path -Parent $PSScriptRoot
@@ -36,6 +36,7 @@ $inc = "$root\config\includes.chroot"
 $brd = "$root\packages\viaunix-branding"
 $wall = [System.Drawing.Image]::FromFile($out)
 Redimensionar $wall "$brd\usr\share\backgrounds\viaunix\grub.png" 1920 1080
+Redimensionar $logo "$brd\usr\share\pixmaps\viaunix-gdm-logo.png" 96 96
 Redimensionar $logo "$brd\usr\share\plymouth\themes\viaunix\logo.png" 400 400
 Redimensionar $logo "$inc\etc\calamares\branding\viaunix\logo.png" 256 256
 Redimensionar $logo "$inc\etc\calamares\branding\viaunix\welcome.png" 512 512

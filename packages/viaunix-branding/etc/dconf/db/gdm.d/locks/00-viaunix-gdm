@@ -1,0 +1,3 @@
+# Trava logo e desabilitacao da lista de usuarios no GDM (estacao compartilhada)
+/org/gnome/login-screen/logo
+/org/gnome/login-screen/disable-user-list

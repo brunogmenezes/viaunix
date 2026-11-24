@@ -7,10 +7,57 @@ systemctl enable systemd-timesyncd || true
 
 # Sessão exclusiva do instalador (ativa só no Live, ver ADR 0004)
 systemctl enable viaunix-live-installer.service || true
+# Reenvio de provisionamento caso a instalação ocorra sem rede
+systemctl enable viaunix-provision-retry.service || true
 
-# Calamares com a marca ViaUnix
+# Calamares: marca ViaUnix + remove tela 'users' + inclui provisionamento automático
 if [ -f /etc/calamares/settings.conf ]; then
-    sed -i 's/^branding:.*/branding: viaunix/' /etc/calamares/settings.conf
+    python3 - <<'PYEOF'
+import re
+
+path = "/etc/calamares/settings.conf"
+with open(path, "r", encoding="utf-8") as f:
+    text = f.read()
+
+# 1. Marca ViaUnix
+text = re.sub(r"^branding:.*$", "branding: viaunix", text, flags=re.MULTILINE)
+
+# 2. Remove o passo interativo e o modulo 'users' (usuario/hostname/senha agora sao aleatorios)
+text = re.sub(r"^[ \t]*-[ \t]*users[ \t]*\n", "", text, flags=re.MULTILINE)
+
+# 3. Registra a instancia shellprocess@viaunix_provision
+inst_block = (
+    "  - id:       viaunix_provision\n"
+    "    module:   shellprocess\n"
+    "    config:   shellprocess_viaunix_provision.conf\n"
+)
+if "viaunix_provision" not in text:
+    if re.search(r"^instances:\s*$", text, flags=re.MULTILINE):
+        text = re.sub(r"^(instances:\s*\n)", r"\1" + inst_block, text, count=1, flags=re.MULTILINE)
+    else:
+        text = text.replace("sequence:", "instances:\n" + inst_block + "\nsequence:", 1)
+
+    # 4. Insere na fase exec logo apos machineid (ou unpackfs)
+    if re.search(r"^[ \t]*-[ \t]*machineid[ \t]*$", text, flags=re.MULTILINE):
+        text = re.sub(
+            r"^([ \t]*-[ \t]*machineid[ \t]*\n)",
+            r"\1  - shellprocess@viaunix_provision\n",
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+    else:
+        text = re.sub(
+            r"^([ \t]*-[ \t]*unpackfs[ \t]*\n)",
+            r"\1  - shellprocess@viaunix_provision\n",
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(text)
+PYEOF
 fi
 
 # Locale pt-BR

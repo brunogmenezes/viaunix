@@ -2,6 +2,9 @@
 set -e
 if [ "$1" = configure ]; then
     dconf update || true
+    if [ -x /usr/libexec/viaunix-gdm-theme ]; then
+        /usr/libexec/viaunix-gdm-theme || true
+    fi
     if command -v plymouth-set-default-theme >/dev/null 2>&1; then
         plymouth-set-default-theme viaunix || true
         update-initramfs -u || true

@@ -1,0 +1,69 @@
+#!/bin/sh
+# ViaUnix - aplica o papel de parede do ViaUnix tambem no fundo da tela de login (GDM)
+# Compila um gresource proprio a partir do tema do GNOME Shell instalado e registra via update-alternatives.
+set -e
+
+WALL="/usr/share/backgrounds/viaunix/viaunix-wallpaper.png"
+SRC_GRES="/usr/share/gnome-shell/gnome-shell-theme.gresource"
+OUT_GRES="/usr/share/gnome-shell/viaunix-gdm-theme.gresource"
+
+[ -f "$WALL" ] || exit 0
+[ -f "$SRC_GRES" ] || exit 0
+command -v gresource >/dev/null 2>&1 || exit 0
+command -v glib-compile-resources >/dev/null 2>&1 || exit 0
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+mkdir -p "$TMP/theme"
+XML="$TMP/theme/viaunix-gdm-theme.gresource.xml"
+
+cat > "$XML" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/gnome/shell/theme">
+EOF
+
+for r in $(gresource list "$SRC_GRES"); do
+    rel="${r#/org/gnome/shell/theme/}"
+    # Ignora caminhos fora do prefixo esperado
+    [ "$rel" = "$r" ] && continue
+    mkdir -p "$TMP/theme/$(dirname "$rel")"
+    gresource extract "$SRC_GRES" "$r" > "$TMP/theme/$rel"
+    printf '    <file>%s</file>\n' "$rel" >> "$XML"
+done
+
+cp "$WALL" "$TMP/theme/viaunix-wallpaper.png"
+printf '    <file>viaunix-wallpaper.png</file>\n' >> "$XML"
+
+cat >> "$XML" <<'EOF'
+  </gresource>
+</gresources>
+EOF
+
+for css in "$TMP/theme/gnome-shell.css" "$TMP/theme/gnome-shell-high-contrast.css"; do
+    if [ -f "$css" ]; then
+        cat >> "$css" <<'EOF'
+
+/* ViaUnix - fundo da tela de login GDM */
+#lockDialogGroup {
+  background: #0e284e url("resource:///org/gnome/shell/theme/viaunix-wallpaper.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+EOF
+    fi
+done
+
+glib-compile-resources --sourcedir="$TMP/theme" --target="$OUT_GRES" "$XML"
+chmod 644 "$OUT_GRES"
+
+# Registra no update-alternatives do Debian (gdm-theme.gresource ou gdm3-theme.gresource)
+if update-alternatives --query gdm-theme.gresource >/dev/null 2>&1; then
+    update-alternatives --install /usr/share/gnome-shell/gdm-theme.gresource gdm-theme.gresource "$OUT_GRES" 100
+    update-alternatives --set gdm-theme.gresource "$OUT_GRES"
+elif update-alternatives --query gdm3-theme.gresource >/dev/null 2>&1; then
+    update-alternatives --install /usr/share/gnome-shell/gdm3-theme.gresource gdm3-theme.gresource "$OUT_GRES" 100
+    update-alternatives --set gdm3-theme.gresource "$OUT_GRES"
+fi
