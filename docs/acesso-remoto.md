@@ -3,7 +3,7 @@
 Permite acessar a tela das estações ViaUnix **direto pelo navegador**, sem instalar aplicativo no PC do suporte e **sem necessidade de o usuário autorizar** (inclusive na tela de login GDM).
 
 ## Como funciona
-- **Servidor:** MeshCentral rodando no `172.16.152.2` na porta HTTPS **`8090`** (`https://172.16.152.2:8090`).
+- **Servidor:** MeshCentral rodando no `172.16.152.2` na porta **`8090`** (`http://172.16.152.2:8090` com `tlsOffload: true`, para evitar bloqueio de TLS por IP/sem SNI na rede interna).
 - **Estações (`viaunix-remote`):**
   1. Configura `WaylandEnable=false` no `/etc/gdm3/daemon.conf` (sessão GNOME em X11, necessária para captura de tela sem confirmação do usuário).
   2. Instala e ativa o agente `meshagent.service` (conexão 100% de saída — o firewall `nftables` continua fechado).

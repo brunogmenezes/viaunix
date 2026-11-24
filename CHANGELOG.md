@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- MeshCentral: habilitado `tlsOffload: true` (`http://172.16.152.2:8090`) porque o firewall/IPS da rede derruba handshakes TLS por IP (sem SNI) em portas altas.
 - `viaunix-branding` 1.0.3: corrige tela de login GDM no Debian 13 (grava também em `/usr/share/gdm/dconf/99-viaunix-settings`, atualiza `/etc/gdm3/greeter.dconf-defaults`, roda `generate-config`/`dconf compile` e adiciona fallback `dpkg-divert` no `viaunix-gdm-theme`).
 - `viaunix-firewall` 1.0.2: corrige `nftables.conf` com LF puro (CRLF impedia o `nftables` de iniciar), valida sintaxe mostrando erro e reinicia o serviço; `build-packages.sh` remove `\r` de todos os arquivos de texto dos pacotes.
 - `viaunix-provision` 1.0.0 (`viaunix-base` 1.0.3): empacotado como `.deb` para rodar também em VMs já instaladas via `apt full-upgrade`, gerando credenciais aleatórias, enviando ao `172.16.152.2:8088` e travando contas `sudo` antigas somente após confirmação do servidor.

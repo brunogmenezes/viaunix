@@ -28,6 +28,7 @@ if [ ! -f "$MC_DIR/meshcentral-data/config.json" ]; then
     "port": $MC_PORT,
     "aliasPort": $MC_PORT,
     "redirPort": 0,
+    "tlsOffload": true,
     "exactPorts": true,
     "allowLoginToken": true,
     "allowFraming": false,
@@ -73,7 +74,7 @@ systemctl status --no-pager meshcentral.service | head -15 || true
 echo ""
 echo "=============================================================="
 echo "MeshCentral ativo!"
-echo "Acesse no navegador: https://$MC_HOST:$MC_PORT"
+echo "Acesse no navegador: http://$MC_HOST:$MC_PORT"
 echo "1. Crie sua conta admin na 1a tela."
 echo "2. Depois desative novos cadastros em $MC_DIR/meshcentral-data/config.json"
 echo "   trocando \"newAccounts\": false e rodando: systemctl restart meshcentral"

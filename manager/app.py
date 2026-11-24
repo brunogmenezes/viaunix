@@ -43,7 +43,7 @@ def load_config() -> dict:
         "ADMIN_USERS": "Brunog",
         "LOCAL_ADMIN_USER": "admin",
         "LOCAL_ADMIN_HASH": "",
-        "MESHCENTRAL_URL": "https://172.16.152.2:8090",
+        "MESHCENTRAL_URL": "http://172.16.152.2:8090",
     }
     if os.path.isfile(CONF_PATH):
         with open(CONF_PATH, "r", encoding="utf-8") as f:
