@@ -20,4 +20,15 @@ trap 'rm -rf "$TMP"' EXIT
 
 curl -fsSLk "${MESHCENTRAL_URL}/meshagents?script=1" -o "$TMP/meshinstall.sh"
 chmod +x "$TMP/meshinstall.sh"
-sh "$TMP/meshinstall.sh" "${MESHCENTRAL_URL}" "${MESH_ID}"
+bash "$TMP/meshinstall.sh" "${MESHCENTRAL_URL}" "${MESH_ID}"
+
+# Se MeshCentral estiver em HTTP (tlsOffload: true), ajusta MeshServer de wss:// para ws://
+MSH=/usr/local/mesh_services/meshagent/meshagent.msh
+case "$MESHCENTRAL_URL" in
+    http://*)
+        if [ -f "$MSH" ] && grep -q "^MeshServer=wss://" "$MSH"; then
+            sed -i 's|^MeshServer=wss://|MeshServer=ws://|' "$MSH"
+            systemctl restart meshagent.service || true
+        fi
+        ;;
+esac
