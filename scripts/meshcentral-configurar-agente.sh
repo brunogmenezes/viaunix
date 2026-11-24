@@ -16,10 +16,11 @@ if [ -z "$URL" ] || [ -z "$MESH_ID" ]; then
 fi
 
 CONF=packages/viaunix-remote/etc/viaunix/meshcentral.conf
+# Usa aspas simples para nao expandir '$' contido no MESH_ID do MeshCentral
 cat > "$CONF" <<EOF
 # Configuracao do agente MeshCentral (gerada por scripts/meshcentral-configurar-agente.sh)
-MESHCENTRAL_URL=$URL
-MESH_ID=$MESH_ID
+MESHCENTRAL_URL='$URL'
+MESH_ID='$MESH_ID'
 EOF
 
 # Incrementa automaticamente o ultimo digito da Version do viaunix-remote para publicar via APT
