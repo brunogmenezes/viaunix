@@ -23,8 +23,8 @@ if [ ! -f "$MC_DIR/meshcentral-data/config.json" ]; then
   "\$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
   "settings": {
     "cert": "$MC_HOST",
-    "WANonly": false,
-    "LANonly": true,
+    "WANonly": true,
+    "LANonly": false,
     "port": $MC_PORT,
     "aliasPort": $MC_PORT,
     "redirPort": 0,
