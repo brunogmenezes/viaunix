@@ -23,6 +23,8 @@ sed -i "s|@REPO_URL@|$REPO_URL|g; s|@CODENAME@|$CODENAME|g" \
     "$STAGE/viaunix-archive-keyring/etc/apt/sources.list.d/viaunix.sources"
 
 for d in "$STAGE"/*/; do
+    # Remove eventuais CRLF em scripts/configs de texto (evita erro em nftables e maintainer scripts)
+    find "$d" -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.gpg' -exec sed -i 's/\r$//' {} +
     find "$d" -type d -exec chmod 755 {} +
     find "$d" -type f ! -path '*/DEBIAN/*' -exec chmod 644 {} +
     find "$d" -type f \( -path '*/usr/bin/*' -o -path '*/usr/sbin/*' -o -path '*/usr/libexec/*' -o -path '*/usr/local/bin/*' -o -path '*/usr/local/sbin/*' \) -exec chmod 755 {} +

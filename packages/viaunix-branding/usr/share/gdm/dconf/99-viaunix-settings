@@ -1,0 +1,4 @@
+# ViaUnix - configuracao nativa do GDM no Debian 13 (compilada pelo gdm3)
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/viaunix-gdm-logo.png'
+disable-user-list=true

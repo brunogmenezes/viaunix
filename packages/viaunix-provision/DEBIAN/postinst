@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    chmod 600 /etc/viaunix/provision.conf 2>/dev/null || true
+    systemctl enable viaunix-provision-retry.service >/dev/null 2>&1 || true
+
+    # Roda automaticamente em VMs JA instaladas (nao no chroot do build nem no Live)
+    if [ -d /run/systemd/system ] && ! grep -qw "boot=live" /proc/cmdline 2>/dev/null; then
+        if [ ! -f /var/lib/viaunix-provision/provisioned ]; then
+            /usr/sbin/viaunix-provision --existing || true
+        fi
+    fi
+fi
+exit 0

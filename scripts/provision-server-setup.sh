@@ -8,7 +8,7 @@ install -d -m 700 /etc/viaunix /var/lib/viaunix-provision
 install -m 755 scripts/viaunix-provision-server.py /usr/local/sbin/viaunix-provision-server
 
 if [ ! -f /etc/viaunix/provision-server.conf ]; then
-    cp config/includes.chroot/etc/viaunix/provision.conf /etc/viaunix/provision-server.conf
+    cp packages/viaunix-provision/etc/viaunix/provision.conf /etc/viaunix/provision-server.conf
     # Adiciona BIND/PORT mantendo o mesmo PROVISION_TOKEN
     printf '\nBIND=0.0.0.0\nPORT=8088\n' >> /etc/viaunix/provision-server.conf
     chmod 600 /etc/viaunix/provision-server.conf

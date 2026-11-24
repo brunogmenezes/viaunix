@@ -6,6 +6,9 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- `viaunix-branding` 1.0.3: corrige tela de login GDM no Debian 13 (grava também em `/usr/share/gdm/dconf/99-viaunix-settings`, atualiza `/etc/gdm3/greeter.dconf-defaults`, roda `generate-config`/`dconf compile` e adiciona fallback `dpkg-divert` no `viaunix-gdm-theme`).
+- `viaunix-firewall` 1.0.2: corrige `nftables.conf` com LF puro (CRLF impedia o `nftables` de iniciar), valida sintaxe mostrando erro e reinicia o serviço; `build-packages.sh` remove `\r` de todos os arquivos de texto dos pacotes.
+- `viaunix-provision` 1.0.0 (`viaunix-base` 1.0.3): empacotado como `.deb` para rodar também em VMs já instaladas via `apt full-upgrade`, gerando credenciais aleatórias, enviando ao `172.16.152.2:8088` e travando contas `sudo` antigas somente após confirmação do servidor.
 - `viaunix-auth` 1.0.2: usa caminho absoluto `/usr/sbin/useradd` e `PATH` explícito (no contexto do GDM/PAM, `/usr/sbin` não vem no `PATH`).
 - `viaunix-auth` 1.0.1: ajusta `pam_succeed_if` em `/etc/pam.d/gdm-password` para ignorar `user_unknown` no 1º login de usuários da API (sem liberar `root`), adiciona `useradd --badname` para nomes com maiúsculas (ex.: `Brunog`) e registra no syslog qualquer saída antecipada/erro.
 - Publicação: `scripts/repo-incluir.sh` publica só pacotes com versão nova (antes o reprepro recusava os `.deb` recompilados com mesma versão) e sempre exporta o índice.

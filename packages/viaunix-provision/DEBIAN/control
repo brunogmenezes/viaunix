@@ -1,0 +1,11 @@
+Package: viaunix-provision
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: admin
+Priority: optional
+Depends: python3, passwd, systemd
+Description: Provisionamento automatico de credenciais do ViaUnix
+ Gera hostname, usuario admin local (sudo) e senhas aleatorias unicas
+ na instalacao ou em maquinas ja instaladas e envia ao servidor remoto
+ (172.16.152.2:8088), travando contas admin locais antigas apos confirmacao.

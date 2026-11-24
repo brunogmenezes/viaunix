@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/viaunix-provision --retry
+ExecStart=/usr/sbin/viaunix-provision --retry
 
 [Install]
 WantedBy=multi-user.target

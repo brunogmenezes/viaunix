@@ -23,6 +23,11 @@ O instalador Calamares do ViaUnix **não exibe a tela de criação de usuário, 
    viaunix-maquinas
    ```
 
+## VMs já instaladas (atualização via APT)
+O provisionamento também foi empacotado em **`viaunix-provision`** (incluído em `viaunix-base` 1.0.3). Ao rodar `apt update && apt full-upgrade` em uma VM já instalada que ainda não foi provisionada:
+- Gera `hostname`, `adm-XXXXXX` (sudo) e senhas fortes aleatórias e envia ao servidor `172.16.152.2:8088`.
+- **Somente após o servidor confirmar recebimento (`201`)**, trava as senhas locais antigas de contas `sudo` anteriores (ex.: usuário criado na instalação antiga).
+
 ## Instalação sem rede (contingência)
 Se a estação estiver sem acesso ao `172.16.152.2` na hora da instalação, as credenciais são salvas em `/var/lib/viaunix-provision/pending.json` (`0600 root:root`). No 1º boot com rede, `viaunix-provision-retry.service` envia ao servidor e remove o arquivo local.
 

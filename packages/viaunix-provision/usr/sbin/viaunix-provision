@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
-"""ViaUnix - provisionamento automatico durante a instalacao (Calamares).
+"""ViaUnix - provisionamento automatico (instalacao nova ou VM ja instalada).
 
-Gera hostname, usuario admin local e senhas aleatorias unicas (sem pedir no wizard),
-configura o sistema instalado e envia os dados ao servidor remoto (172.16.152.2).
-Se a maquina estiver sem rede na instalacao, salva em /var/lib/viaunix-provision/pending.json
-(0600 root:root) para reenvio automatico no 1o boot com rede (--retry).
+Modos:
+  (padrao)    Executado pelo Calamares na instalacao nova.
+  --existing  Executado pelo postinst em VMs ja instaladas: gera usuario/senhas/hostname
+              aleatorios unicos, envia ao servidor e, apos confirmacao (201), trava
+              senhas locais de contas sudo antigas.
+  --retry     Executado no boot (viaunix-provision-retry.service) se estava offline.
 """
 
 import datetime
 import glob
+import grp
 import json
 import os
 import secrets
-import string
+import socket
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 
 CONF_PATH = "/etc/viaunix/provision.conf"
-PENDING_DIR = "/var/lib/viaunix-provision"
-PENDING_PATH = os.path.join(PENDING_DIR, "pending.json")
+STATE_DIR = "/var/lib/viaunix-provision"
+PENDING_PATH = os.path.join(STATE_DIR, "pending.json")
+MARKER_PATH = os.path.join(STATE_DIR, "provisioned")
 
 ALPHABET_USER = "abcdefghjkmnpqrstuvwxyz23456789"
 ALPHABET_PASS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%"
@@ -111,21 +115,35 @@ def send_to_server(cfg: dict, record: dict) -> str:
         return "network_error"
 
 
-def save_pending(record: dict) -> None:
-    os.makedirs(PENDING_DIR, mode=0o700, exist_ok=True)
-    os.chmod(PENDING_DIR, 0o700)
-    fd = os.open(PENDING_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+def save_json(path: str, data: dict) -> None:
+    os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+    os.chmod(STATE_DIR, 0o700)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(record, f, indent=2)
+        json.dump(data, f, indent=2)
 
 
-def apply_local_system(record: dict) -> None:
+def lock_old_sudo_users(keep_user: str) -> None:
+    """Trava a senha local de usuarios sudo antigos (ex: conta criada na instalacao antiga)."""
+    env = dict(os.environ)
+    env["PATH"] = "/usr/sbin:/sbin:/usr/bin:/bin"
+    try:
+        sudo_members = list(grp.getgrnam("sudo").gr_mem)
+    except KeyError:
+        return
+    for old_user in sudo_members:
+        if old_user in ("root", keep_user):
+            continue
+        subprocess.run(["/usr/bin/passwd", "-l", old_user], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        print(f"[viaunix-provision] senha local antiga travada para '{old_user}'.")
+
+
+def apply_local_system(record: dict, live_system: bool) -> None:
     hostname = record["hostname"]
     user = record["usuario"]
     password = record["senha"]
     root_password = record["root_senha"]
 
-    # 1. Hostname
     with open("/etc/hostname", "w", encoding="utf-8") as f:
         f.write(f"{hostname}\n")
 
@@ -139,9 +157,11 @@ def apply_local_system(record: dict) -> None:
     with open("/etc/hosts", "w", encoding="utf-8") as f:
         f.writelines(hosts_lines)
 
-    # 2. Usuario admin local (suporte) + senha forte + senha do root
     env = dict(os.environ)
     env["PATH"] = "/usr/sbin:/sbin:/usr/bin:/bin"
+
+    if live_system:
+        subprocess.run(["/usr/bin/hostnamectl", "set-hostname", hostname], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
 
     subprocess.run(
         ["/usr/sbin/useradd", "-m", "-s", "/bin/bash", "-G", "sudo,adm", user],
@@ -157,7 +177,6 @@ def apply_local_system(record: dict) -> None:
         env=env,
     )
 
-    # Garante que nao haja login automatico no sistema instalado
     for gdm_cfg in ("/etc/gdm3/daemon.conf", "/etc/gdm3/custom.conf"):
         if os.path.isfile(gdm_cfg):
             with open(gdm_cfg, "r", encoding="utf-8") as f:
@@ -176,6 +195,8 @@ def run_retry(cfg: dict) -> int:
     status = send_to_server(cfg, record)
     if status in ("ok", "conflict"):
         os.remove(PENDING_PATH)
+        if record.get("lock_old_after_send"):
+            lock_old_sudo_users(record["usuario"])
         print("[viaunix-provision] credenciais pendentes enviadas ao servidor.")
         return 0
     return 1
@@ -183,8 +204,12 @@ def run_retry(cfg: dict) -> int:
 
 def main() -> int:
     cfg = load_config()
-    if len(sys.argv) > 1 and sys.argv[1] == "--retry":
+    mode = sys.argv[1] if len(sys.argv) > 1 else ""
+
+    if mode == "--retry":
         return run_retry(cfg)
+
+    existing_mode = (mode == "--existing")
 
     record = None
     sent = False
@@ -197,7 +222,6 @@ def main() -> int:
             break
         if status == "conflict":
             continue
-        # Sem rede na instalacao: usa o candidato gerado e agenda reenvio no 1o boot
         record = candidate
         sent = False
         break
@@ -205,13 +229,26 @@ def main() -> int:
     if record is None:
         record = generate_credentials()
 
-    apply_local_system(record)
+    apply_local_system(record, live_system=existing_mode)
 
-    if not sent:
-        save_pending(record)
-        print("[viaunix-provision] aviso: servidor inacessivel na instalacao; salvo para reenvio no 1o boot.")
+    # Marca a maquina como provisionada (sem guardar senha no marcador)
+    save_json(MARKER_PATH, {
+        "hostname": record["hostname"],
+        "usuario": record["usuario"],
+        "provisionado_em": record["instalado_em"],
+        "enviado": sent,
+    })
+
+    if sent:
+        if existing_mode:
+            # Somente trava contas admin antigas APOS confirmacao do servidor
+            lock_old_sudo_users(record["usuario"])
+        print(f"[viaunix-provision] maquina '{record['hostname']}' ({record['usuario']}) registrada no servidor.")
     else:
-        print(f"[viaunix-provision] maquina '{record['hostname']}' registrada no servidor.")
+        if existing_mode:
+            record["lock_old_after_send"] = True
+        save_json(PENDING_PATH, record)
+        print("[viaunix-provision] aviso: servidor inacessivel; salvo para reenvio automatico no proximo boot.")
     return 0
 
 

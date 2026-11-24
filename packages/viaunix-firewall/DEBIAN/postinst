@@ -1,10 +1,17 @@
 #!/bin/sh
 set -e
 if [ "$1" = configure ]; then
+    # Garante finais de linha LF e permissao correta
+    sed -i 's/\r$//' /etc/nftables.conf 2>/dev/null || true
+    chmod 644 /etc/nftables.conf 2>/dev/null || true
+
     systemctl enable nftables >/dev/null 2>&1 || true
-    # Em sistema em execucao: valida e recarrega as regras (sem derrubar se invalido)
-    if [ -d /run/systemd/system ] && nft -c -f /etc/nftables.conf >/dev/null 2>&1; then
-        systemctl reload-or-restart nftables || true
+    if [ -d /run/systemd/system ]; then
+        if nft -c -f /etc/nftables.conf; then
+            systemctl restart nftables
+        else
+            echo "AVISO: /etc/nftables.conf com erro de sintaxe; verifique com: nft -c -f /etc/nftables.conf" >&2
+        fi
     fi
 fi
 exit 0
