@@ -1,0 +1,23 @@
+#!/bin/sh
+# Instala ou atualiza o agente MeshCentral na estacao ViaUnix usando /etc/viaunix/meshcentral.conf
+set -e
+
+CONF=/etc/viaunix/meshcentral.conf
+[ -f "$CONF" ] || exit 0
+. "$CONF"
+
+# Se MESH_ID ainda nao foi preenchido, nao faz nada (aguarda configuracao no servidor)
+[ -n "${MESH_ID:-}" ] || exit 0
+[ -n "${MESHCENTRAL_URL:-}" ] || exit 0
+
+# Se o meshagent ja estiver instalado e ativo, nao reinstala
+if systemctl is-active --quiet meshagent.service 2>/dev/null; then
+    exit 0
+fi
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+curl -fsSLk "${MESHCENTRAL_URL}/meshagents?script=1" -o "$TMP/meshinstall.sh"
+chmod +x "$TMP/meshinstall.sh"
+sh "$TMP/meshinstall.sh" "${MESHCENTRAL_URL}" "${MESH_ID}"

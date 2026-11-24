@@ -83,6 +83,7 @@
     <div class="tabs">
       <button id="tabMachines" class="active" onclick="showTab('machines')">Maquinas</button>
       <button id="tabAudit" class="ghost" onclick="showTab('audit')">Auditoria</button>
+      <button id="btnMesh" class="accent hidden" onclick="openMeshCentral()">Tela Remota (MeshCentral)</button>
     </div>
 
     <div id="machinesPane" class="card">
@@ -122,6 +123,11 @@
 <script>
 let machines = [];
 let timer = null;
+let meshUrl = '';
+
+function openMeshCentral() {
+  if (meshUrl) window.open(meshUrl, '_blank', 'noopener');
+}
 
 async function api(url, opts={}) {
   const res = await fetch(url, { credentials: 'same-origin', headers: {'Content-Type':'application/json'}, ...opts });
@@ -138,11 +144,15 @@ function showLogin() {
   document.getElementById('userBar').classList.add('hidden');
 }
 
-function showApp(user) {
+function showApp(user, mcUrl) {
   document.getElementById('loginView').classList.add('hidden');
   document.getElementById('appView').classList.remove('hidden');
   document.getElementById('userBar').classList.remove('hidden');
   document.getElementById('userName').textContent = 'Logado como: ' + user;
+  if (mcUrl) {
+    meshUrl = mcUrl;
+    document.getElementById('btnMesh').classList.remove('hidden');
+  }
   loadMachines();
   clearInterval(timer);
   timer = setInterval(loadMachines, 15000);
@@ -157,7 +167,8 @@ async function doLogin(e) {
       body: JSON.stringify({ usuario: document.getElementById('u').value, senha: document.getElementById('p').value })
     });
     document.getElementById('p').value = '';
-    showApp(d.usuario);
+    const me = await api('/api/auth/me');
+    showApp(me.usuario, me.meshcentral_url);
   } catch (err) {
     document.getElementById('loginMsg').textContent = err.message;
   }
@@ -214,6 +225,7 @@ function renderMachines() {
       <td>
         <div class="actions">
           <button class="sm accent" onclick="reveal(${m.id})">Senhas</button>
+          ${meshUrl ? '<button class="sm" onclick="openMeshCentral()">Tela</button>' : ''}
           <button class="sm" onclick="sendCmd(${m.id},'apt_upgrade','${esc(m.hostname)}')">Atualizar</button>
           <button class="sm" onclick="sendCmd(${m.id},'lock_screen','${esc(m.hostname)}')">Bloquear</button>
           <button class="sm danger" onclick="sendCmd(${m.id},'reboot','${esc(m.hostname)}')">Reiniciar</button>
@@ -316,7 +328,7 @@ async function loadAudit() {
   } catch {}
 }
 
-api('/api/auth/me').then(d => showApp(d.usuario)).catch(() => showLogin());
+api('/api/auth/me').then(d => showApp(d.usuario, d.meshcentral_url)).catch(() => showLogin());
 </script>
 </body>
 </html>

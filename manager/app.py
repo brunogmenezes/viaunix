@@ -43,6 +43,7 @@ def load_config() -> dict:
         "ADMIN_USERS": "Brunog",
         "LOCAL_ADMIN_USER": "admin",
         "LOCAL_ADMIN_HASH": "",
+        "MESHCENTRAL_URL": "https://172.16.152.2:8090",
     }
     if os.path.isfile(CONF_PATH):
         with open(CONF_PATH, "r", encoding="utf-8") as f:
@@ -344,7 +345,7 @@ def logout(response: Response):
 
 @app.get("/api/auth/me")
 def me(admin: str = Depends(require_admin)):
-    return {"usuario": admin}
+    return {"usuario": admin, "meshcentral_url": CFG.get("MESHCENTRAL_URL", "")}
 
 
 # --- Provisionamento (compativel com viaunix-provision) ---

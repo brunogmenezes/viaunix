@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    chmod 600 /etc/viaunix/meshcentral.conf 2>/dev/null || true
+
+    # Forca X11 no GDM para permitir acesso remoto autonomo (sem prompt do Wayland)
+    for f in /etc/gdm3/daemon.conf /etc/gdm3/custom.conf; do
+        if [ -f "$f" ]; then
+            if grep -qE "^[#[:space:]]*WaylandEnable=" "$f"; then
+                sed -i -E 's|^[#[:space:]]*WaylandEnable=.*|WaylandEnable=false|' "$f"
+            elif grep -q "^\[daemon\]" "$f"; then
+                sed -i '/^\[daemon\]/a WaylandEnable=false' "$f"
+            else
+                printf '\n[daemon]\nWaylandEnable=false\n' >> "$f"
+            fi
+        fi
+    done
+
+    # Instala o agente MeshCentral se MESH_ID estiver configurado (apenas fora do chroot/Live)
+    if [ -d /run/systemd/system ] && ! grep -qw "boot=live" /proc/cmdline 2>/dev/null; then
+        /usr/sbin/viaunix-mesh-install || true
+    fi
+fi
+exit 0
