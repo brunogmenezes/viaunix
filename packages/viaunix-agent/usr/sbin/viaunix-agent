@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+"""ViaUnix Agent - agente leve para gestao remota pelo ViaUnix Manager.
+
+Conexao 100% de saida (nao abre nenhuma porta no firewall nftables):
+- Registra-se automaticamente no servidor usando /etc/viaunix/provision.conf e salva
+  token unico por maquina em /var/lib/viaunix-agent/token (0600 root:root).
+- Envia heartbeat a cada 30s com telemetria (IP, usuario logado, CPU, RAM, disco, uptime).
+- Executa comandos da fila: reboot, shutdown, apt_upgrade, lock_screen, rotate_password, shell.
+"""
+
+import glob
+import json
+import os
+import secrets
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+CONF_PATH = "/etc/viaunix/provision.conf"
+STATE_DIR = "/var/lib/viaunix-agent"
+TOKEN_PATH = os.path.join(STATE_DIR, "token")
+POLL_INTERVAL = 30
+ALPHABET_PASS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%"
+
+
+def load_config() -> dict:
+    cfg = {
+        "PROVISION_URL": "http://172.16.152.2:8088/api/provision",
+        "PROVISION_TOKEN": "viaunix-provision-alterar-em-producao",
+        "TIMEOUT": "15",
+    }
+    if os.path.isfile(CONF_PATH):
+        with open(CONF_PATH, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                cfg[k.strip()] = v.strip().strip('"').strip("'")
+    # Base URL = parte antes de /api/provision
+    url = cfg["PROVISION_URL"]
+    cfg["BASE_URL"] = url.split("/api/provision")[0].rstrip("/")
+    return cfg
+
+
+def post_json(url: str, payload: dict, headers: dict, timeout: float = 15.0) -> tuple[int, dict]:
+    data = json.dumps(payload).encode("utf-8")
+    hdrs = {"Content-Type": "application/json", "Accept": "application/json"}
+    hdrs.update(headers)
+    req = urllib.request.Request(url, data=data, method="POST", headers=hdrs)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            return resp.status, (json.loads(body) if body else {})
+    except urllib.error.HTTPError as exc:
+        return exc.code, {}
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return 0, {}
+
+
+def get_primary_mac() -> str:
+    for path in sorted(glob.glob("/sys/class/net/*/address")):
+        if path.split("/")[-2] == "lo":
+            continue
+        try:
+            mac = open(path, "r", encoding="utf-8").read().strip()
+            if mac and mac != "00:00:00:00:00:00":
+                return mac
+        except OSError:
+            pass
+    return ""
+
+
+def get_serial() -> str:
+    for p in ("/sys/class/dmi/id/product_serial", "/sys/class/dmi/id/product_uuid"):
+        try:
+            v = open(p, "r", encoding="utf-8").read().strip()
+            if v:
+                return v
+        except OSError:
+            pass
+    return ""
+
+
+def get_local_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("172.16.152.2", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return ""
+
+
+def get_logged_user() -> str:
+    try:
+        out = subprocess.check_output(["/usr/bin/who"], text=True, timeout=5)
+        users = []
+        for line in out.splitlines():
+            parts = line.split()
+            if parts and parts[0] not in users:
+                users.append(parts[0])
+        return ", ".join(users[:3])
+    except Exception:
+        return ""
+
+
+def get_os_version() -> str:
+    try:
+        with open("/etc/os-release", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return "ViaUnix"
+
+
+def get_cpu_percent() -> float:
+    def read_cpu():
+        with open("/proc/stat", "r", encoding="utf-8") as f:
+            parts = [int(x) for x in f.readline().split()[1:8]]
+        idle = parts[3] + parts[4]
+        return idle, sum(parts)
+    try:
+        i1, t1 = read_cpu()
+        time.sleep(0.3)
+        i2, t2 = read_cpu()
+        dt = t2 - t1
+        return round(100.0 * (1.0 - (i2 - i1) / dt), 1) if dt > 0 else 0.0
+    except OSError:
+        return 0.0
+
+
+def get_mem_percent() -> float:
+    info = {}
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = int(v.strip().split()[0])
+        total = info.get("MemTotal", 0)
+        avail = info.get("MemAvailable", info.get("MemFree", 0))
+        return round(100.0 * (1.0 - avail / total), 1) if total > 0 else 0.0
+    except Exception:
+        return 0.0
+
+
+def get_disk_percent() -> float:
+    try:
+        u = shutil.disk_usage("/")
+        return round(100.0 * u.used / u.total, 1) if u.total > 0 else 0.0
+    except OSError:
+        return 0.0
+
+
+def get_uptime_sec() -> int:
+    try:
+        return int(float(open("/proc/uptime", "r", encoding="utf-8").read().split()[0]))
+    except Exception:
+        return 0
+
+
+def ensure_token(cfg: dict) -> str:
+    if os.path.isfile(TOKEN_PATH):
+        tok = open(TOKEN_PATH, "r", encoding="utf-8").read().strip()
+        if tok:
+            return tok
+
+    hostname = socket.gethostname()
+    code, resp = post_json(
+        cfg["BASE_URL"] + "/api/agent/register",
+        {"hostname": hostname, "mac": get_primary_mac(), "serial": get_serial()},
+        {"X-ViaUnix-Token": cfg["PROVISION_TOKEN"]},
+    )
+    if code == 200 and resp.get("agent_token"):
+        os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+        os.chmod(STATE_DIR, 0o700)
+        fd = os.open(TOKEN_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(resp["agent_token"] + "\n")
+        return resp["agent_token"]
+    return ""
+
+
+def run_command(cfg: dict, token: str, cmd: dict) -> None:
+    cmd_id = cmd["id"]
+    action = cmd["action"]
+    payload = cmd.get("payload", "")
+    usuario = cmd.get("usuario", "")
+    result_url = f"{cfg['BASE_URL']}/api/agent/command/{cmd_id}/result"
+    hdr = {"X-Agent-Token": token}
+    env = dict(os.environ)
+    env["PATH"] = "/usr/sbin:/sbin:/usr/bin:/bin"
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+
+    if action == "reboot":
+        post_json(result_url, {"status": "done", "output": "Reiniciando estacao..."}, hdr)
+        subprocess.Popen(["/bin/systemctl", "reboot"], env=env)
+        return
+
+    if action == "shutdown":
+        post_json(result_url, {"status": "done", "output": "Desligando estacao..."}, hdr)
+        subprocess.Popen(["/bin/systemctl", "poweroff"], env=env)
+        return
+
+    if action == "lock_screen":
+        res = subprocess.run(["/bin/loginctl", "lock-sessions"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+        post_json(result_url, {"status": "done" if res.returncode == 0 else "failed", "output": res.stdout or "Sessoes bloqueadas."}, hdr)
+        return
+
+    if action == "apt_upgrade":
+        res = subprocess.run(
+            ["/bin/sh", "-c", "apt-get update && apt-get full-upgrade -y -o Dpkg::Options::=--force-confnew"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=900, env=env,
+        )
+        post_json(result_url, {"status": "done" if res.returncode == 0 else "failed", "output": res.stdout[-30000:]}, hdr)
+        return
+
+    if action == "rotate_password":
+        new_pw = "".join(secrets.choice(ALPHABET_PASS) for _ in range(16))
+        new_root = "".join(secrets.choice(ALPHABET_PASS) for _ in range(16))
+        ch_in = f"root:{new_root}\n"
+        if usuario:
+            ch_in = f"{usuario}:{new_pw}\n" + ch_in
+        res = subprocess.run(["/usr/sbin/chpasswd"], input=ch_in, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+        if res.returncode == 0:
+            post_json(
+                result_url,
+                {"status": "done", "output": "Senhas rotacionadas com sucesso.", "new_senha": new_pw, "new_root_senha": new_root},
+                hdr,
+            )
+        else:
+            post_json(result_url, {"status": "failed", "output": res.stdout}, hdr)
+        return
+
+    if action == "shell":
+        try:
+            res = subprocess.run(["/bin/sh", "-c", payload], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120, env=env)
+            post_json(result_url, {"status": "done" if res.returncode == 0 else "failed", "output": (res.stdout or "")[-30000:]}, hdr)
+        except subprocess.TimeoutExpired:
+            post_json(result_url, {"status": "failed", "output": "Tempo limite (120s) excedido."}, hdr)
+        return
+
+    post_json(result_url, {"status": "failed", "output": f"Acao desconhecida: {action}"}, hdr)
+
+
+def main() -> None:
+    while True:
+        cfg = load_config()
+        token = ensure_token(cfg)
+        if not token:
+            time.sleep(POLL_INTERVAL)
+            continue
+
+        hb = {
+            "hostname": socket.gethostname(),
+            "ip_local": get_local_ip(),
+            "logged_user": get_logged_user(),
+            "os_version": get_os_version(),
+            "cpu_percent": get_cpu_percent(),
+            "mem_percent": get_mem_percent(),
+            "disk_percent": get_disk_percent(),
+            "uptime_sec": get_uptime_sec(),
+        }
+        code, resp = post_json(cfg["BASE_URL"] + "/api/agent/heartbeat", hb, {"X-Agent-Token": token})
+        if code == 403 and os.path.isfile(TOKEN_PATH):
+            # Token revogado/invalido: força novo registro
+            os.remove(TOKEN_PATH)
+        elif code == 200 and resp.get("command"):
+            try:
+                run_command(cfg, token, resp["command"])
+            except Exception as exc:
+                print(f"[viaunix-agent] erro executando comando: {exc}", file=sys.stderr, flush=True)
+
+        time.sleep(POLL_INTERVAL)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    mkdir -p /var/lib/viaunix-agent
+    chmod 700 /var/lib/viaunix-agent
+    systemctl enable viaunix-agent.service >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ] && ! grep -qw "boot=live" /proc/cmdline 2>/dev/null; then
+        systemctl daemon-reload || true
+        systemctl restart viaunix-agent.service || true
+    fi
+fi
+exit 0

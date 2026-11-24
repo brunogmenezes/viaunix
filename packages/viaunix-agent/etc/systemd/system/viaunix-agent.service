@@ -1,0 +1,14 @@
+[Unit]
+Description=ViaUnix Agent (gerenciamento remoto via conexao de saida)
+ConditionKernelCommandLine=!boot=live
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/viaunix-agent
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
