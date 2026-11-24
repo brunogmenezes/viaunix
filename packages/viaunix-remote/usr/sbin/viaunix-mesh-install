@@ -6,12 +6,12 @@ CONF=/etc/viaunix/meshcentral.conf
 [ -f "$CONF" ] || exit 0
 . "$CONF"
 
-# Se MESH_ID ainda nao foi preenchido, nao faz nada (aguarda configuracao no servidor)
 [ -n "${MESH_ID:-}" ] || exit 0
 [ -n "${MESHCENTRAL_URL:-}" ] || exit 0
 
-# Se o meshagent ja estiver instalado e ativo, nao reinstala
-if systemctl is-active --quiet meshagent.service 2>/dev/null; then
+MSH=/usr/local/mesh_services/meshagent/meshagent.msh
+# Se ja esta instalado com wss:// (TLS valido na agentPort), nao reinstala
+if systemctl is-active --quiet meshagent.service 2>/dev/null && [ -f "$MSH" ] && grep -q "^MeshServer=wss://" "$MSH"; then
     exit 0
 fi
 
@@ -21,14 +21,3 @@ trap 'rm -rf "$TMP"' EXIT
 curl -fsSLk "${MESHCENTRAL_URL}/meshagents?script=1" -o "$TMP/meshinstall.sh"
 chmod +x "$TMP/meshinstall.sh"
 bash "$TMP/meshinstall.sh" "${MESHCENTRAL_URL}" "${MESH_ID}"
-
-# Se MeshCentral estiver em HTTP (tlsOffload: true), ajusta MeshServer de wss:// para ws://
-MSH=/usr/local/mesh_services/meshagent/meshagent.msh
-case "$MESHCENTRAL_URL" in
-    http://*)
-        if [ -f "$MSH" ] && grep -q "^MeshServer=wss://" "$MSH"; then
-            sed -i 's|^MeshServer=wss://|MeshServer=ws://|' "$MSH"
-            systemctl restart meshagent.service || true
-        fi
-        ;;
-esac
