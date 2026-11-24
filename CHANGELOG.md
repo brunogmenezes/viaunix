@@ -23,6 +23,8 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 - **Pré-requisito do build:** a chave pública do repositório precisa estar em `packages/viaunix-archive-keyring/usr/share/keyrings/` (ver docs).
 
 ### Adicionado
+- Google Chrome (`google-chrome-stable`) incluído automaticamente no repositório APT e na ISO via `scripts/baixar-chrome.sh` (`viaunix-base` 1.0.2).
+- Atalho automático do Google Chrome na Área de Trabalho no GNOME (`viaunix-branding` 1.0.1): instala/habilita a extensão `gnome-shell-extension-desktop-icons-ng` (`ding@rastersoft.com`) e cria/confia o atalho em `Área de trabalho` via autostart XDG para usuários novos e existentes. Ainda **não testado**.
 - Autenticação externa via API Júpiter (`viaunix-auth` 1.0.0, ADR 0006, `docs/autenticacao.md`): PAM (`pam-auth-update` + `pam_exec`), criação automática de usuário sem `sudo`, cache offline com `scrypt` e revogação, e login direto sem lista no GDM. Incluído em `viaunix-base` 1.0.1. Ainda **não testado**.
 - `scripts/publicar-local.sh`: o servidor do repositório puxa do Git, gera os `.deb` e publica localmente (sem SSH/scp). Ainda **não testado**.
 - Atualizações por APT (ADR 0005, `docs/atualizacoes.md`): pacotes `.deb` em `packages/` (`viaunix-base`, `-firewall`, `-branding`, `-release`, `-archive-keyring`), `repo.conf`, `scripts/build-packages.sh`, `scripts/publicar.sh`, `scripts/repo-server-setup.sh`. Ainda **não testado**.- Live exclusivo para instalação: abre só o Calamares em tela cheia, sem desktop/terminal (ADR 0004). Fuso America/Sao_Paulo no Calamares e `systemd-timesyncd`. Ainda **não testado**.

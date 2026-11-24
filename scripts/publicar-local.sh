@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 . ./repo.conf
 
 git pull --ff-only
-apt-get install -y dpkg-dev reprepro >/dev/null
+apt-get install -y dpkg-dev reprepro curl >/dev/null
 
 # A chave pública já existe no servidor: usa-a se ainda não estiver no projeto
 KEY=packages/viaunix-archive-keyring/usr/share/keyrings/viaunix-archive-keyring.gpg

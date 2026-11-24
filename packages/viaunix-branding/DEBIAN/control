@@ -1,10 +1,10 @@
 Package: viaunix-branding
-Version: 1.0.0
+Version: 1.0.1
 Architecture: all
 Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
 Section: x11
 Priority: optional
-Depends: dconf-cli, plymouth, plymouth-themes, grub-common
+Depends: dconf-cli, plymouth, plymouth-themes, grub-common, gnome-shell-extension-desktop-icons-ng, libglib2.0-bin, xdg-user-dirs
 Description: Identidade visual do ViaUnix
  Papel de parede, tela de bloqueio e logo de login (travados via dconf),
  tema de boot Plymouth e padroes do GRUB. Reaplica as travas a cada atualizacao.

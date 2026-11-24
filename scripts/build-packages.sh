@@ -25,7 +25,7 @@ sed -i "s|@REPO_URL@|$REPO_URL|g; s|@CODENAME@|$CODENAME|g" \
 for d in "$STAGE"/*/; do
     find "$d" -type d -exec chmod 755 {} +
     find "$d" -type f ! -path '*/DEBIAN/*' -exec chmod 644 {} +
-    find "$d" -type f \( -path '*/usr/bin/*' -o -path '*/usr/sbin/*' -o -path '*/usr/local/bin/*' -o -path '*/usr/local/sbin/*' \) -exec chmod 755 {} +
+    find "$d" -type f \( -path '*/usr/bin/*' -o -path '*/usr/sbin/*' -o -path '*/usr/libexec/*' -o -path '*/usr/local/bin/*' -o -path '*/usr/local/sbin/*' \) -exec chmod 755 {} +
     for s in preinst postinst prerm postrm; do
         [ -f "$d/DEBIAN/$s" ] && chmod 755 "$d/DEBIAN/$s"
     done
@@ -34,4 +34,5 @@ done
 
 rm -f config/packages.chroot/viaunix-*.deb
 cp "$OUT"/*.deb config/packages.chroot/
+sh scripts/baixar-chrome.sh
 ls -lh "$OUT"

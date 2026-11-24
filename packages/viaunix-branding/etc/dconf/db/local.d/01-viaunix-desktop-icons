@@ -1,0 +1,3 @@
+# Habilita icones na area de trabalho (DING) no GNOME
+[org/gnome/shell]
+enabled-extensions=['ding@rastersoft.com']

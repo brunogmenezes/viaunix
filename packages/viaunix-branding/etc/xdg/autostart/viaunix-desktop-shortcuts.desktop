@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ViaUnix Desktop Shortcuts
+Comment=Cria atalhos padrao (Google Chrome) na Area de Trabalho
+Exec=/usr/libexec/viaunix-desktop-shortcuts
+OnlyShowIn=GNOME;
+NoDisplay=true

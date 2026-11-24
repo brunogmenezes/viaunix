@@ -1,0 +1,24 @@
+#!/bin/sh
+# ViaUnix - garante o atalho do Google Chrome na Area de Trabalho do usuario (pt-BR ou en)
+SRC=/usr/share/applications/google-chrome.desktop
+[ -f "$SRC" ] || exit 0
+
+# Garante que os diretorios XDG (Area de trabalho) existam no 1o login
+xdg-user-dirs-update 2>/dev/null || true
+DESKTOP=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+[ -n "$DESKTOP" ] && [ "$DESKTOP" != "$HOME" ] || exit 0
+mkdir -p "$DESKTOP"
+
+DEST="$DESKTOP/google-chrome.desktop"
+if [ ! -f "$DEST" ]; then
+    cp "$SRC" "$DEST"
+    chmod +x "$DEST"
+fi
+
+# Marca como confiavel para o GNOME DING exibir o icone e abrir sem aviso
+gio set "$DEST" metadata::trusted true 2>/dev/null || true
+
+# Garante a extensao de icones na area de trabalho ativa tambem em usuarios ja existentes
+if command -v gnome-extensions >/dev/null 2>&1; then
+    gnome-extensions enable ding@rastersoft.com 2>/dev/null || true
+fi
