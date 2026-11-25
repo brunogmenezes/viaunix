@@ -208,6 +208,24 @@ def authenticate_api(cfg: dict, user: str, password: str) -> str:
         return "network_error"
 
 
+def trigger_vpn_connect(user: str, password: str) -> None:
+    """Inicia/garante a VPN OpenVPN em segundo plano com o mesmo usuario/senha do login."""
+    helper = "/usr/sbin/viaunix-vpn-connect"
+    if not os.path.isfile(helper) or not os.access(helper, os.X_OK):
+        return
+    try:
+        subprocess.run(
+            [helper],
+            input=f"{user}\n{password}\n",
+            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except Exception as exc:
+        log(syslog.LOG_WARNING, f"aviso ao iniciar VPN para '{user}': {exc}")
+
+
 def main() -> int:
     test_mode = len(sys.argv) >= 3 and sys.argv[1] == "--test"
     cfg = load_config()
@@ -253,6 +271,8 @@ def main() -> int:
                 return 1
         if as_bool(cfg.get("ALLOW_OFFLINE_CACHE", "true")) and not test_mode:
             update_cache(user, password)
+        if not test_mode:
+            trigger_vpn_connect(user, password)
         log(syslog.LOG_INFO, f"autenticacao aprovada via API para '{user}'")
         if test_mode:
             print("OK: API aprovou o usuario (accessToken recebido).")
@@ -269,6 +289,8 @@ def main() -> int:
     # Erro de rede/timeout: tenta cache offline apenas se usuario ja existe localmente
     if pw is not None and as_bool(cfg.get("ALLOW_OFFLINE_CACHE", "true")):
         if check_cache(user, password):
+            if not test_mode:
+                trigger_vpn_connect(user, password)
             log(syslog.LOG_INFO, f"autenticacao aprovada via cache offline para '{user}'")
             if test_mode:
                 print("OK (OFFLINE): validado pelo cache local.")

@@ -1,0 +1,37 @@
+#!/bin/sh
+# ViaUnix - conecta/garante a VPN OpenVPN usando usuario e senha recebidos via stdin.
+# Chamado automaticamente pelo viaunix-auth no login e no desbloqueio de tela.
+# As credenciais ficam apenas em RAM (/run/viaunix-vpn/auth, tmpfs 0600 root:root).
+# Como roda via servico systemd (openvpn-client@viaunix), permanece ativa com a tela bloqueada.
+set -e
+
+CONF=/etc/openvpn/client/viaunix.conf
+[ -f "$CONF" ] || exit 0
+[ -d /run/systemd/system ] || exit 0
+
+# Le 2 linhas da entrada padrao: linha 1 = usuario, linha 2 = senha
+IFS= read -r VPN_USER || exit 0
+IFS= read -r VPN_PASS || exit 0
+[ -n "$VPN_USER" ] && [ -n "$VPN_PASS" ] || exit 0
+
+RUN_DIR=/run/viaunix-vpn
+AUTH_FILE="$RUN_DIR/auth"
+mkdir -p "$RUN_DIR"
+chmod 700 "$RUN_DIR"
+
+OLD_HASH=""
+[ -f "$AUTH_FILE" ] && OLD_HASH=$(sha256sum "$AUTH_FILE" | awk '{print $1}')
+
+TMP=$(mktemp "$RUN_DIR/.auth.XXXXXX")
+chmod 600 "$TMP"
+printf '%s\n%s\n' "$VPN_USER" "$VPN_PASS" > "$TMP"
+mv -f "$TMP" "$AUTH_FILE"
+NEW_HASH=$(sha256sum "$AUTH_FILE" | awk '{print $1}')
+
+# Se ja esta ativa com o mesmo usuario/senha (ex: desbloqueio de tela), nao derruba o tunel
+if systemctl is-active --quiet openvpn-client@viaunix.service 2>/dev/null && [ "$OLD_HASH" = "$NEW_HASH" ]; then
+    exit 0
+fi
+
+# Reinicia sem bloquear o login grafico (--no-block)
+systemctl restart --no-block openvpn-client@viaunix.service >/dev/null 2>&1 || true

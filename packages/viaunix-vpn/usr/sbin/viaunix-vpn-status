@@ -1,0 +1,5 @@
+#!/bin/sh
+# Mostra o status rapido da VPN corporativa do ViaUnix
+systemctl status openvpn-client@viaunix.service --no-pager | head -15
+echo ""
+ip -brief addr show dev tun0 2>/dev/null || echo "Interface tun0 ainda nao ativa."

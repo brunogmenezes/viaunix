@@ -1,0 +1,11 @@
+Package: viaunix-vpn
+Version: 1.0.0
+Architecture: all
+Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
+Section: net
+Priority: optional
+Depends: openvpn, systemd
+Description: VPN OpenVPN corporativa automatica do ViaUnix
+ Conecta automaticamente a VPN OpenVPN ao logar ou desbloquear a estacao
+ usando o mesmo usuario e senha do login (em RAM /run/viaunix-vpn/auth),
+ mantendo o tunel ativo mesmo com a tela bloqueada via servico systemd.

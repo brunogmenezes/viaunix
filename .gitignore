@@ -13,3 +13,6 @@ build.log
 /out/
 /build/
 /config/packages.chroot/*.deb
+*.ovpn
+packages/viaunix-vpn/etc/openvpn/client/viaunix.conf
+packages/viaunix-vpn/etc/viaunix/vpn-keypass

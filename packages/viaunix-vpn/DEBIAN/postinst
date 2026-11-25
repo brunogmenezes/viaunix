@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    [ -f /etc/openvpn/client/viaunix.conf ] && chmod 600 /etc/openvpn/client/viaunix.conf || true
+    [ -f /etc/viaunix/vpn-keypass ] && chmod 600 /etc/viaunix/vpn-keypass || true
+fi
+exit 0
