@@ -4,7 +4,14 @@
 xset s off -dpms 2>/dev/null || true
 matchbox-window-manager -use_titlebar no -use_cursor yes &
 
-# Calamares precisa de root; o usuário live tem sudo sem senha (live-config).
+# Passo 1: conexao de rede (cabeada ou Wi-Fi) com comunicacao com o servidor.
+# Se o usuario cancelar o assistente, o computador reinicia (volta ao inicio).
+if ! /usr/local/bin/viaunix-installer-network; then
+    sudo systemctl reboot
+    exit 0
+fi
+
+# Passo 2: instalador (Calamares) - precisa de root; o usuario live tem sudo sem senha.
 sudo -E calamares
 
 # Ao encerrar o instalador (concluído ou cancelado) reinicia o computador.

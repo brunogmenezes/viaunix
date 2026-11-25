@@ -12,6 +12,11 @@ calamares-settings-debian
 matchbox-window-manager
 x11-xserver-utils
 xorg
+zenity
+network-manager
+wpasupplicant
+rfkill
+curl
 
 # --- Boot/instalação no disco ---
 grub-efi-amd64
@@ -25,5 +30,6 @@ firmware-misc-nonfree
 firmware-iwlwifi
 firmware-realtek
 firmware-atheros
+firmware-brcm80211
 intel-microcode
 amd64-microcode

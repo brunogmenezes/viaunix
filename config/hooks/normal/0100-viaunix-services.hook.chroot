@@ -55,6 +55,16 @@ if "viaunix_provision" not in text:
             flags=re.MULTILINE,
         )
 
+# 5. Copia as redes (incl. Wi-Fi) configuradas no assistente para o sistema instalado
+if not re.search(r"^[ \t]*-[ \t]*networkcfg[ \t]*$", text, flags=re.MULTILINE):
+    text = re.sub(
+        r"^([ \t]*-[ \t]*shellprocess@viaunix_provision[ \t]*\n)",
+        r"\1  - networkcfg\n",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
 with open(path, "w", encoding="utf-8") as f:
     f.write(text)
 PYEOF
