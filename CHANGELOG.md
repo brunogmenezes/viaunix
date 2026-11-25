@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- `viaunix-firewall` 1.0.3: `/etc/nftables.conf` deixa de ser *conffile* (conflitava com o desvio do `nftables` e gerava a pergunta "Deleted since installation" no `apt upgrade`). O firewall é agora sempre reaplicado nas atualizações.
 - MeshCentral: alterado para `WANonly: true` / `LANonly: false` (em modo LAN o agente gerava `MeshServer=local` via multicast e não alcançava o servidor através de NAT/VLAN/VPN).
 - MeshCentral + `viaunix-remote` 1.0.4: configura `agentPort: 8091` com TLS nativo (`agentPortTls: true`) para o `meshagent` (que exige `wss://`), mantendo a interface web em HTTP na `8090` (`tlsOffload: true`).
 - `viaunix-remote` 1.0.2: executa `meshinstall.sh` com `bash` (usava `sh`/dash e falhava em `[[`) e ajusta `wss://` para `ws://` no `meshagent.msh` quando `MESHCENTRAL_URL` é `http://`.
