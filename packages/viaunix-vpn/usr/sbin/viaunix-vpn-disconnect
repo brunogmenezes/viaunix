@@ -1,0 +1,5 @@
+#!/bin/sh
+# ViaUnix - desconecta a VPN corporativa e limpa credenciais da RAM
+set -e
+systemctl stop openvpn-client@viaunix.service >/dev/null 2>&1 || true
+rm -f /run/viaunix-vpn/auth /run/viaunix-vpn/status

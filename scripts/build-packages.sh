@@ -12,6 +12,11 @@ if [ ! -s "$KEY" ]; then
     exit 1
 fi
 
+if [ ! -s packages/viaunix-vpn/etc/openvpn/client/viaunix.conf ]; then
+    echo "AVISO: perfil OpenVPN ausente em packages/viaunix-vpn/etc/openvpn/client/viaunix.conf" >&2
+    echo "Para incluir a VPN no pacote/ISO, rode antes: sh scripts/vpn-configurar.sh <arquivo.ovpn> '<senha_chave>'" >&2
+fi
+
 STAGE=build/stage
 OUT=out/debs
 rm -rf "$STAGE" "$OUT"
@@ -28,6 +33,7 @@ for d in "$STAGE"/*/; do
     find "$d" -type d -exec chmod 755 {} +
     find "$d" -type f ! -path '*/DEBIAN/*' -exec chmod 644 {} +
     find "$d" -type f \( -path '*/usr/bin/*' -o -path '*/usr/sbin/*' -o -path '*/usr/libexec/*' -o -path '*/usr/local/bin/*' -o -path '*/usr/local/sbin/*' \) -exec chmod 755 {} +
+    find "$d" -type f -path '*/etc/sudoers.d/*' -exec chmod 440 {} +
     for s in preinst postinst prerm postrm; do
         [ -f "$d/DEBIAN/$s" ] && chmod 755 "$d/DEBIAN/$s"
     done

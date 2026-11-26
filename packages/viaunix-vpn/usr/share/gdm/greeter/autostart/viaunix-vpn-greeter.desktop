@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ViaUnix VPN (Tela de Login)
+Comment=Permite conectar a VPN corporativa antes do login no GDM
+Exec=/usr/libexec/viaunix-vpn-gui --greeter
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Phase=Application

@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+"""ViaUnix VPN GUI - barra na tela de login (GDM --greeter) e app no desktop.
+
+Permite conectar/desconectar a VPN OpenVPN corporativa ANTES do login (GDM)
+ou dentro da sessao GNOME, usando /usr/sbin/viaunix-vpn-connect e -disconnect via sudoers.
+"""
+
+import os
+import re
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+
+CONF_PATH = "/etc/openvpn/client/viaunix.conf"
+CSS = b"""
+window.viaunix-bar {
+    background-color: #0e284e;
+    border: 1px solid #2b5fa8;
+    border-radius: 10px;
+}
+label.status-lbl {
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 13px;
+}
+button.vpn-btn {
+    background-image: none;
+    background-color: #ff9f1a;
+    color: #081529;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+}
+button.vpn-btn-stop {
+    background-image: none;
+    background-color: #c0392b;
+    color: #ffffff;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+}
+"""
+
+
+def get_vpn_state() -> tuple[str, str]:
+    """Retorna (estado, texto): 'connected', 'connecting', 'disconnected' ou 'unconfigured'."""
+    if not os.path.exists(CONF_PATH):
+        # Em modo nao-root o /etc/openvpn/client/viaunix.conf tem chmod 600,
+        # mas o servico systemd existe; so marca unconfigured se realmente ausente para root
+        pass
+
+    try:
+        ip_out = subprocess.check_output(
+            ["/usr/sbin/ip", "-4", "-o", "addr", "show", "dev", "tun0"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        )
+        m = re.search(r"inet\s+([0-9.]+)", ip_out)
+        if m:
+            return "connected", f"VPN Conectada ({m.group(1)})"
+    except Exception:
+        pass
+
+    try:
+        st = subprocess.check_output(
+            ["/bin/systemctl", "is-active", "openvpn-client@viaunix.service"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        ).strip()
+        if st in ("active", "activating"):
+            return "connecting", "VPN Conectando..."
+    except Exception:
+        pass
+
+    return "disconnected", "VPN Desconectada"
+
+
+class VpnWindow(Gtk.Window):
+    def __init__(self, greeter: bool) -> None:
+        super().__init__(title="ViaUnix VPN")
+        self.greeter = greeter
+        self.set_resizable(False)
+        self.set_border_width(10)
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        if greeter:
+            self.get_style_context().add_class("viaunix-bar")
+            self.set_decorated(False)
+            self.set_keep_above(True)
+            self.set_skip_taskbar_hint(True)
+            self.set_skip_pager_hint(True)
+            self.move(24, 24)
+        else:
+            self.set_position(Gtk.WindowPosition.CENTER)
+            self.set_default_size(380, 110)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.add(box)
+
+        self.lbl = Gtk.Label(label="Verificando VPN...")
+        if greeter:
+            self.lbl.get_style_context().add_class("status-lbl")
+        box.pack_start(self.lbl, True, True, 4)
+
+        self.btn = Gtk.Button(label="Conectar VPN")
+        self.btn.connect("clicked", self.on_button_clicked)
+        box.pack_end(self.btn, False, False, 0)
+
+        self.state = "disconnected"
+        self.refresh_state()
+        GLib.timeout_add_seconds(3, self.refresh_state)
+
+    def refresh_state(self) -> bool:
+        self.state, text = get_vpn_state()
+        if self.state == "connected":
+            self.lbl.set_text(f"● {text}")
+            self.btn.set_label("Desconectar")
+            self.btn.get_style_context().remove_class("vpn-btn")
+            self.btn.get_style_context().add_class("vpn-btn-stop")
+        elif self.state == "connecting":
+            self.lbl.set_text(f"◐ {text}")
+            self.btn.set_label("Cancelar")
+            self.btn.get_style_context().remove_class("vpn-btn")
+            self.btn.get_style_context().add_class("vpn-btn-stop")
+        else:
+            self.lbl.set_text(f"○ {text}")
+            self.btn.set_label("Conectar VPN")
+            self.btn.get_style_context().remove_class("vpn-btn-stop")
+            self.btn.get_style_context().add_class("vpn-btn")
+        return True
+
+    def on_button_clicked(self, _widget) -> None:
+        if self.state in ("connected", "connecting"):
+            subprocess.run(
+                ["/usr/bin/sudo", "-n", "/usr/sbin/viaunix-vpn-disconnect"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.refresh_state()
+            return
+
+        dlg = Gtk.Dialog(
+            title="Conectar ViaUnix VPN",
+            transient_for=self,
+            flags=Gtk.DialogFlags.MODAL,
+        )
+        dlg.add_buttons("Cancelar", Gtk.ResponseType.CANCEL, "Conectar", Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        dlg.set_border_width(12)
+
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        area.add(Gtk.Label(label="Informe seu usuário e senha corporativos para conectar na VPN:"))
+
+        u_entry = Gtk.Entry()
+        u_entry.set_placeholder_text("Usuário")
+        u_entry.set_activates_default(True)
+        area.add(u_entry)
+
+        p_entry = Gtk.Entry()
+        p_entry.set_placeholder_text("Senha")
+        p_entry.set_visibility(False)
+        p_entry.set_activates_default(True)
+        area.add(p_entry)
+
+        dlg.show_all()
+        resp = dlg.run()
+        user = u_entry.get_text().strip()
+        pw = p_entry.get_text()
+        dlg.destroy()
+
+        if resp == Gtk.ResponseType.OK and user and pw:
+            res = subprocess.run(
+                ["/usr/bin/sudo", "-n", "/usr/sbin/viaunix-vpn-connect"],
+                input=f"{user}\n{pw}\n",
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            if res.returncode != 0:
+                err = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=Gtk.DialogFlags.MODAL,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Não foi possível iniciar a VPN.",
+                )
+                err.format_secondary_text(res.stdout.strip() or "Verifique se o perfil VPN está instalado.")
+                err.run()
+                err.destroy()
+            self.refresh_state()
+
+
+def main() -> None:
+    greeter = "--greeter" in sys.argv
+    win = VpnWindow(greeter=greeter)
+    if not greeter:
+        win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

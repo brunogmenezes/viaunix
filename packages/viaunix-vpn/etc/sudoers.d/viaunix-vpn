@@ -1,0 +1,3 @@
+# ViaUnix - permite conectar/desconectar a VPN na tela de login (Debian-gdm) e usuarios locais
+Debian-gdm ALL=(root) NOPASSWD: /usr/sbin/viaunix-vpn-connect, /usr/sbin/viaunix-vpn-disconnect
+%users ALL=(root) NOPASSWD: /usr/sbin/viaunix-vpn-connect, /usr/sbin/viaunix-vpn-disconnect

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ViaUnix VPN
+Comment=Conectar ou verificar o status da VPN corporativa
+Exec=/usr/libexec/viaunix-vpn-gui
+Icon=network-vpn
+Terminal=false
+Categories=Network;System;

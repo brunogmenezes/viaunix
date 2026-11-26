@@ -5,6 +5,13 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.0.2] - 2026-11-26
+
+### Adicionado
+- `viaunix-vpn` 1.1.0: barra flutuante **Conectar VPN** diretamente na tela de login do GDM (`/usr/share/gdm/greeter/autostart/viaunix-vpn-greeter.desktop` + `/usr/libexec/viaunix-vpn-gui`) e aplicativo **ViaUnix VPN** no menu do GNOME, com botão Conectar/Desconectar, status em tempo real (`tun0`) e permissão restrita em `/etc/sudoers.d/viaunix-vpn` (`440`). Atualiza também VMs já instaladas via APT.
+- `build-packages.sh`: ajusta permissão `440` em `etc/sudoers.d/*` e exibe aviso explícito se o perfil `.ovpn` não estiver presente antes do build da ISO.
+- Release `v1.0.2` (`VERSION`, `viaunix-release` 1.0.2, `os-release`, `issue`, `branding.desc`).
+
 ## [1.0.1] - 2026-11-26
 
 ### Adicionado (versionamento)

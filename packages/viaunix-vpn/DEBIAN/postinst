@@ -3,5 +3,6 @@ set -e
 if [ "$1" = configure ]; then
     [ -f /etc/openvpn/client/viaunix.conf ] && chmod 600 /etc/openvpn/client/viaunix.conf || true
     [ -f /etc/viaunix/vpn-keypass ] && chmod 600 /etc/viaunix/vpn-keypass || true
+    [ -f /etc/sudoers.d/viaunix-vpn ] && chmod 440 /etc/sudoers.d/viaunix-vpn || true
 fi
 exit 0
