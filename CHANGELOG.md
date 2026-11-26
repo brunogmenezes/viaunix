@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.2.1] - 2026-11-26
+
+### Corrigido
+- `viaunix-agent` 1.2.1: adiciona `-noshm -no6` no `x11vnc` (corrige erro `X_ShmAttach` ao capturar a tela do usuário) e `KillMode=process` no `viaunix-agent.service` (impede que o botão **Atualizar** do portal interrompa o `dpkg` ao atualizar o próprio agente).
+- Release `v1.2.1` (`VERSION`, `viaunix-release` 1.2.1, `os-release`, `issue`, `branding.desc`).
+
 ## [1.2.0] - 2026-11-26
 
 ### Alterado

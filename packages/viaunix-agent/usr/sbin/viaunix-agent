@@ -319,6 +319,8 @@ def handle_remote_request(cfg: dict, token: str, rreq: dict) -> None:
     vnc_cmd = [
         "/usr/bin/x11vnc",
         "-localhost",
+        "-no6",
+        "-noshm",
         "-rfbport", str(vnc_port),
         "-passwd", otp,
         "-display", disp,
