@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.0.4] - 2026-11-26
+
+### Corrigido
+- `viaunix-vpn` 1.2.2: campos de Usuário, Senha e botão **Conectar VPN** embutidos diretamente no menu dropdown da extensão GNOME Shell (elimina falha de `ModalDialog` no GDM 48 / GJS).
+- Release `v1.0.4` (`VERSION`, `viaunix-release` 1.0.4, `os-release`, `issue`, `branding.desc`).
+
 ## [1.0.3] - 2026-11-26
 
 ### Corrigido

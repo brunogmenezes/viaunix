@@ -7,7 +7,6 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
 function runCommandAsync(argv, stdinText = null) {
     return new Promise((resolve) => {
@@ -30,87 +29,71 @@ function runCommandAsync(argv, stdinText = null) {
     });
 }
 
-class VpnLoginDialog extends ModalDialog.ModalDialog {
-    constructor(onSubmit) {
-        super({styleClass: 'viaunix-vpn-dialog'});
-        this._onSubmit = onSubmit;
-
-        const box = new St.BoxLayout({vertical: true, style: 'spacing: 10px; min-width: 300px;'});
-        this.contentLayout.add_child(box);
-
-        box.add_child(new St.Label({
-            text: 'Conectar ViaUnix VPN',
-            style: 'font-weight: bold; font-size: 15px;',
-        }));
-        box.add_child(new St.Label({
-            text: 'Informe seu usuário e senha corporativos:',
-        }));
-
-        this._userEntry = new St.Entry({
-            hint_text: 'Usuário',
-            can_focus: true,
-        });
-        this._passEntry = new St.PasswordEntry({
-            hint_text: 'Senha',
-            can_focus: true,
-        });
-
-        box.add_child(this._userEntry);
-        box.add_child(this._passEntry);
-
-        this._passEntry.clutter_text.connect('activate', () => this._submit());
-        this._userEntry.clutter_text.connect('activate', () => this._passEntry.grab_key_focus());
-
-        this.setButtons([
-            {
-                label: 'Cancelar',
-                action: () => this.close(),
-                key: Clutter.KEY_Escape,
-            },
-            {
-                label: 'Conectar',
-                action: () => this._submit(),
-                default: true,
-            },
-        ]);
-    }
-
-    open() {
-        super.open();
-        this._userEntry.grab_key_focus();
-    }
-
-    _submit() {
-        const user = this._userEntry.get_text().trim();
-        const pass = this._passEntry.get_text();
-        if (!user || !pass)
-            return;
-        this.close();
-        this._onSubmit(user, pass);
-    }
-}
-
 export default class ViaUnixVpnExtension extends Extension {
     enable() {
         this._indicator = new PanelMenu.Button(0.0, 'ViaUnix VPN', false);
         this._label = new St.Label({
-            text: 'VPN: ...',
+            text: '○ VPN',
             y_align: Clutter.ActorAlign.CENTER,
             style: 'padding: 0 6px; font-weight: bold;',
         });
         this._indicator.add_child(this._label);
 
         this._statusItem = new PopupMenu.PopupMenuItem('Verificando VPN...', {reactive: false});
-        this._connectItem = new PopupMenu.PopupMenuItem('Conectar VPN...');
-        this._disconnectItem = new PopupMenu.PopupMenuItem('Desconectar VPN');
-
-        this._connectItem.connect('activate', () => this._openConnectDialog());
-        this._disconnectItem.connect('activate', () => this._disconnect());
-
         this._indicator.menu.addMenuItem(this._statusItem);
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._indicator.menu.addMenuItem(this._connectItem);
+
+        // Formulario direto dentro do menu (evita conflito de ModalDialog no GDM e tela de bloqueio)
+        this._formItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        const formBox = new St.BoxLayout({
+            vertical: true,
+            style: 'spacing: 8px; min-width: 240px; padding: 4px 0;',
+        });
+
+        this._userEntry = new St.Entry({
+            hint_text: 'Usuário',
+            can_focus: true,
+            style: 'min-width: 230px;',
+        });
+        this._passEntry = new St.PasswordEntry({
+            hint_text: 'Senha',
+            can_focus: true,
+            style: 'min-width: 230px;',
+        });
+        this._connectBtn = new St.Button({
+            label: 'Conectar VPN',
+            can_focus: true,
+            style: 'background-color: #ff9f1a; color: #081529; font-weight: bold; border-radius: 6px; padding: 6px 12px;',
+        });
+        this._feedbackLbl = new St.Label({
+            text: '',
+            style: 'color: #ff7675; font-size: 11px;',
+        });
+        this._feedbackLbl.visible = false;
+
+        this._userEntry.clutter_text.connect('activate', () => this._passEntry.grab_key_focus());
+        this._passEntry.clutter_text.connect('activate', () => this._connect());
+        this._connectBtn.connect('clicked', () => this._connect());
+
+        formBox.add_child(this._userEntry);
+        formBox.add_child(this._passEntry);
+        formBox.add_child(this._connectBtn);
+        formBox.add_child(this._feedbackLbl);
+        this._formItem.add_child(formBox);
+        this._indicator.menu.addMenuItem(this._formItem);
+
+        this._disconnectItem = new PopupMenu.PopupMenuItem('Desconectar VPN');
+        this._disconnectItem.connect('activate', () => this._disconnect());
         this._indicator.menu.addMenuItem(this._disconnectItem);
+
+        this._indicator.menu.connect('open-state-changed', (_menu, isOpen) => {
+            if (isOpen && this._formItem.visible) {
+                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    this._userEntry?.grab_key_focus();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+        });
 
         Main.panel.addToStatusArea(this.uuid, this._indicator, 1, 'right');
 
@@ -141,8 +124,9 @@ export default class ViaUnixVpnExtension extends Extension {
         if (m) {
             this._label.set_text(`● VPN (${m[1]})`);
             this._statusItem.label.set_text(`Conectada — IP ${m[1]}`);
-            this._connectItem.visible = false;
+            this._formItem.visible = false;
             this._disconnectItem.visible = true;
+            this._feedbackLbl.visible = false;
             return;
         }
 
@@ -154,26 +138,41 @@ export default class ViaUnixVpnExtension extends Extension {
         if (st === 'active' || st === 'activating') {
             this._label.set_text('◐ VPN...');
             this._statusItem.label.set_text('Conectando na VPN...');
-            this._connectItem.visible = false;
+            this._formItem.visible = false;
             this._disconnectItem.visible = true;
         } else {
             this._label.set_text('○ VPN');
             this._statusItem.label.set_text('VPN Desconectada');
-            this._connectItem.visible = true;
+            this._formItem.visible = true;
             this._disconnectItem.visible = false;
         }
     }
 
-    _openConnectDialog() {
-        const dlg = new VpnLoginDialog(async (user, pass) => {
-            this._label.set_text('◐ VPN...');
-            await runCommandAsync(
-                ['/usr/bin/sudo', '-n', '/usr/sbin/viaunix-vpn-connect'],
-                `${user}\n${pass}\n`
-            );
-            this._refresh();
-        });
-        dlg.open();
+    async _connect() {
+        const user = this._userEntry.get_text().trim();
+        const pass = this._passEntry.get_text();
+        if (!user || !pass) {
+            this._feedbackLbl.set_text('Informe usuário e senha.');
+            this._feedbackLbl.visible = true;
+            return;
+        }
+
+        this._feedbackLbl.visible = false;
+        this._passEntry.set_text('');
+        this._label.set_text('◐ VPN...');
+        this._statusItem.label.set_text('Conectando na VPN...');
+
+        const res = await runCommandAsync(
+            ['/usr/bin/sudo', '-n', '/usr/sbin/viaunix-vpn-connect'],
+            `${user}\n${pass}\n`
+        );
+        if (!res.ok) {
+            this._feedbackLbl.set_text('Erro ao iniciar VPN.');
+            this._feedbackLbl.visible = true;
+        } else {
+            this._indicator.menu.close();
+        }
+        this._refresh();
     }
 
     async _disconnect() {
