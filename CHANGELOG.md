@@ -5,6 +5,11 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.0.1] - 2026-11-26
+
+### Adicionado (versionamento)
+- Arquivo `VERSION` (`1.0.1`) como fonte única de versão: gera `viaunix-1.0.1-amd64.hybrid.iso` + `.sha256` automaticamente e atualiza `viaunix-release` (`1.0.1`), `os-release`, `issue` e Calamares (`branding.desc`). Tag Git `v1.0.1`.
+
 ### Corrigido
 - Instalador (ISO): removido pipe `zenity --progress` (travava em GTK4/Debian 13) e flags `QT_XCB_GL_INTEGRATION`/`QSG_RHI_BACKEND` que bloqueavam o Calamares após o assistente de rede; erros do Calamares agora exibem alerta antes do reboot. Exige gerar ISO nova.
 - Instalador (ISO): substituído `matchbox-window-manager` por `openbox` travado (`/etc/viaunix/openbox-installer.xml`) + `QT_XCB_GL_INTEGRATION=none` (corrige congelamento e rastros pretos nos diálogos modais `Particionando...` do Calamares) e adicionado `partition.conf` com `Formatar o disco` pré-selecionado. Exige gerar ISO nova.

@@ -5,7 +5,10 @@
 2. Branches: `main` (estável), `develop` (integração), `feature/<tema>`.
 3. Commits no padrão *Conventional Commits* em português: `feat(firewall): ...`, `fix(pacotes): ...`, `docs: ...`, `chore: ...`.
 4. Cada mudança relevante atualiza o `CHANGELOG.md` e, se for decisão de arquitetura, cria um ADR em `docs/decisoes/`.
-5. Releases: tag `vX.Y.Z` em `main` (ex.: `v1.0.0`). Atualize `VERSION_ID` em `config/includes.chroot/etc/os-release`.
+5. Releases e ISOs versionadas:
+   - O arquivo `VERSION` na raiz é a fonte única de versão (`X.Y.Z`).
+   - O `auto/config` e `scripts/build.sh` usam `VERSION` automaticamente para gerar **`viaunix-X.Y.Z-amd64.hybrid.iso`** + **`viaunix-X.Y.Z-amd64.hybrid.iso.sha256`**.
+   - A cada release, sincronize `VERSION`, `packages/viaunix-release` (`os-release`, `issue`, `control`), `branding.desc`, feche a seção datada no `CHANGELOG.md` e crie a tag anotada `git tag -a vX.Y.Z -m "ViaUnix X.Y.Z"`.
 6. Base Debian: registre a versão de base no CHANGELOG (ex.: "base Debian 13.7"). Para acompanhar atualizações do Debian, refaça o build e revise o diff de pacotes.
 
 ## Atualização futura
