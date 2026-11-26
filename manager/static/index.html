@@ -402,7 +402,6 @@ function renderMachines() {
       <td>
         <div><strong>${esc(m.logged_user || '(tela de login)')}</strong></div>
         <div class="sub">IP: ${esc(m.ip_local || m.ip_origem || '-')}</div>
-        ${m.rustdesk_id ? `<div class="sub">RustDesk: ${esc(m.rustdesk_id)}</div>` : ''}
       </td>
       <td>
         <div class="bars">
@@ -582,7 +581,7 @@ async function loadRemoteSessions() {
     document.getElementById('remoteBody').innerHTML = (d.sessions || []).map(s => `
       <tr>
         <td>#${s.id}</td>
-        <td><strong>${esc(s.hostname)}</strong><div class="sub">${esc(s.rustdesk_id || '')}</div></td>
+        <td><strong>${esc(s.hostname)}</strong></td>
         <td>${esc(s.operator)}<div class="sub">${esc(s.operator_ip)}</div></td>
         <td>${esc(s.station_user || '-')}</td>
         <td>${esc(s.reason)}</td>
