@@ -200,8 +200,38 @@ def ensure_token(cfg: dict) -> str:
     return ""
 
 
-def find_graphical_session() -> tuple[str, int, str, str]:
-    """Retorna (username, uid, DISPLAY, XAUTHORITY) da sessao grafica ativa (ou vazio)."""
+def find_graphical_session() -> tuple[str, int, dict]:
+    """Localiza o usuario logado no GNOME e extrai o ambiente grafico real do gnome-shell."""
+    keep_keys = ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR")
+
+    # 1. Metodo mais confiavel: ler /proc/<pid>/environ do gnome-shell do usuario logado
+    for pid_dir in glob.glob("/proc/[0-9]*"):
+        try:
+            comm = open(os.path.join(pid_dir, "comm"), "r", encoding="utf-8").read().strip()
+            if comm != "gnome-shell":
+                continue
+            uid = os.stat(pid_dir).st_uid
+            if uid < 1000:
+                continue
+            pw = pwd.getpwuid(uid)
+            raw_env = open(os.path.join(pid_dir, "environ"), "rb").read().split(b"\x00")
+            proc_env = {}
+            for item in raw_env:
+                if b"=" in item:
+                    k, v = item.split(b"=", 1)
+                    ks = k.decode("utf-8", errors="ignore")
+                    if ks in keep_keys:
+                        proc_env[ks] = v.decode("utf-8", errors="ignore")
+            if proc_env.get("DISPLAY") or proc_env.get("WAYLAND_DISPLAY"):
+                proc_env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+                proc_env["HOME"] = pw.pw_dir
+                proc_env["USER"] = pw.pw_name
+                proc_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+                return pw.pw_name, uid, proc_env
+        except OSError:
+            continue
+
+    # 2. Fallback via loginctl
     try:
         out = subprocess.check_output(["/bin/loginctl", "list-sessions", "--no-legend"], text=True, timeout=4)
         for line in out.splitlines():
@@ -211,24 +241,32 @@ def find_graphical_session() -> tuple[str, int, str, str]:
             sid, uid_s, user = parts[0], parts[1], parts[2]
             if user in ("Debian-gdm", "gdm", "root"):
                 continue
+            uid = int(uid_s)
+            if uid < 1000:
+                continue
+            pw = pwd.getpwuid(uid)
             props = subprocess.check_output(
                 ["/bin/loginctl", "show-session", sid, "-p", "Type", "-p", "State", "-p", "Display"],
                 text=True, timeout=3,
             )
             kv = dict(l.split("=", 1) for l in props.splitlines() if "=" in l)
             if kv.get("Type") in ("x11", "wayland") and kv.get("State") == "active":
-                uid = int(uid_s)
-                disp = kv.get("Display") or ":0"
-                # Tenta localizar Xauthority do usuario
-                xauth = ""
-                for cand in (f"/run/user/{uid}/gdm/Xauthority", f"{pwd.getpwuid(uid).pw_dir}/.Xauthority"):
+                env = {
+                    "PATH": "/usr/local/bin:/usr/bin:/bin",
+                    "HOME": pw.pw_dir,
+                    "USER": user,
+                    "DISPLAY": kv.get("Display") or ":0",
+                    "XDG_RUNTIME_DIR": f"/run/user/{uid}",
+                    "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{uid}/bus",
+                }
+                for cand in (f"/run/user/{uid}/gdm/Xauthority", f"{pw.pw_dir}/.Xauthority"):
                     if os.path.isfile(cand):
-                        xauth = cand
+                        env["XAUTHORITY"] = cand
                         break
-                return user, uid, disp, xauth
+                return user, uid, env
     except Exception:
         pass
-    return "", -1, "", ""
+    return "", -1, {}
 
 
 def handle_remote_request(cfg: dict, token: str, rreq: dict) -> None:
@@ -238,33 +276,31 @@ def handle_remote_request(cfg: dict, token: str, rreq: dict) -> None:
     respond_url = f"{cfg['BASE_URL']}/api/agent/remote/{sid}/respond"
     hdr = {"X-Agent-Token": token}
 
-    user, uid, disp, xauth = find_graphical_session()
+    user, _uid, env = find_graphical_session()
     if not user:
         post_json(respond_url, {"approved": False, "station_user": "", "detail": "nenhum usuario logado na tela"}, hdr)
         return
-
-    env = {
-        "PATH": "/usr/local/bin:/usr/bin:/bin",
-        "DISPLAY": disp,
-        "XDG_RUNTIME_DIR": f"/run/user/{uid}",
-        "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{uid}/bus",
-    }
-    if xauth:
-        env["XAUTHORITY"] = xauth
 
     try:
         res = subprocess.run(
             ["/usr/sbin/runuser", "-u", user, "--", "/usr/libexec/viaunix-remote-prompt", operator, reason],
             env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
             timeout=70,
         )
         approved = (res.returncode == 0)
+        err_out = (res.stderr or "").strip()
+        if err_out:
+            print(f"[viaunix-agent] prompt stderr ({user}): {err_out}", file=sys.stderr, flush=True)
     except Exception as exc:
         post_json(respond_url, {"approved": False, "station_user": user, "detail": f"erro prompt: {exc}"}, hdr)
         return
 
     if not approved:
-        post_json(respond_url, {"approved": False, "station_user": user, "detail": "recusado ou expirado"}, hdr)
+        detail = f"recusado ou expirado ({err_out[:120]})" if err_out else "recusado ou expirado"
+        post_json(respond_url, {"approved": False, "station_user": user, "detail": detail}, hdr)
         return
 
     # Usuario autorizou: gera senha temporaria unica (OTP) e aplica no RustDesk

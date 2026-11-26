@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.1.1] - 2026-11-26
+
+### Corrigido
+- `viaunix-agent` 1.1.1: extrai `DISPLAY`, `WAYLAND_DISPLAY`, `XAUTHORITY`, `DBUS_SESSION_BUS_ADDRESS` e `HOME` diretamente do `/proc/<pid>/environ` do `gnome-shell` do colaborador logado (garante a exibição da janela GTK3 de autorização de acesso remoto) e registra eventuais erros no `journalctl -u viaunix-agent`.
+- Release `v1.1.1` (`VERSION`, `viaunix-release` 1.1.1, `os-release`, `issue`, `branding.desc`).
+
 ## [1.1.0] - 2026-11-26
 
 ### Alterado
