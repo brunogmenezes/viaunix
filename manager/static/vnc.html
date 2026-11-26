@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tela Remota — ViaUnix Manager</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #040b16; color: #eef4ff; overflow: hidden; display: flex; flex-direction: column; }
+  .bar {
+    background: #0c1b33; border-bottom: 1px solid #1d3b6b; padding: 8px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
+  }
+  .info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #f1c40f; }
+  .dot.ok { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+  .dot.err { background: #e74c3c; }
+  .btns { display: flex; gap: 8px; }
+  button {
+    cursor: pointer; border: 0; border-radius: 6px; padding: 6px 12px;
+    font-weight: 600; font-size: 12px; background: #1d3b6b; color: #eef4ff;
+  }
+  button:hover { filter: brightness(1.15); }
+  button.danger { background: #e74c3c; color: #fff; }
+  #screen { flex: 1; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="info">
+    <span class="dot" id="dot"></span>
+    <strong id="title">Conectando...</strong>
+    <span id="status" style="color:#8ea9d4">Iniciando túnel seguro...</span>
+  </div>
+  <div class="btns">
+    <button onclick="toggleScale()" id="btnScale">Ajustar tela: ON</button>
+    <button onclick="sendCAD()">Ctrl+Alt+Del</button>
+    <button onclick="toggleFull()">Tela cheia</button>
+    <button class="danger" onclick="endSession()">Encerrar Sessão</button>
+  </div>
+</div>
+<div id="screen"></div>
+
+<script type="module">
+import RFB from '/novnc/core/rfb.js';
+
+const params = new URLSearchParams(window.location.search);
+const sid = params.get('session');
+const dot = document.getElementById('dot');
+const titleEl = document.getElementById('title');
+const statusEl = document.getElementById('status');
+let rfb = null;
+let scaleOn = true;
+
+function setStatus(cls, text) {
+  dot.className = 'dot ' + cls;
+  statusEl.textContent = text;
+}
+
+window.toggleScale = () => {
+  scaleOn = !scaleOn;
+  if (rfb) rfb.scaleViewport = scaleOn;
+  document.getElementById('btnScale').textContent = 'Ajustar tela: ' + (scaleOn ? 'ON' : 'OFF');
+};
+window.sendCAD = () => { if (rfb) rfb.sendCtrlAltDel(); };
+window.toggleFull = () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
+};
+window.endSession = async () => {
+  try { await fetch('/api/remote/' + sid + '/end', { method: 'POST', credentials: 'same-origin' }); } catch {}
+  if (rfb) rfb.disconnect();
+  setStatus('err', 'Sessão encerrada.');
+  setTimeout(() => window.close(), 600);
+};
+
+async function start() {
+  if (!sid) { setStatus('err', 'Sessão inválida.'); return; }
+  const res = await fetch('/api/remote/' + sid, { credentials: 'same-origin' });
+  if (!res.ok) { setStatus('err', 'Sessão não autorizada ou expirada.'); return; }
+  const s = await res.json();
+  titleEl.textContent = `${s.hostname} (${s.station_user || 'estação'}) — Sessão #${s.id}`;
+  document.title = `Tela Remota — ${s.hostname}`;
+
+  if (s.status !== 'approved') {
+    setStatus('err', 'Sessão não está ativa (' + s.status + ').');
+    return;
+  }
+
+  const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const wsUrl = `${proto}${window.location.host}/ws/vnc/viewer/${sid}`;
+  setStatus('', 'Estabelecendo vídeo remoto...');
+
+  rfb = new RFB(document.getElementById('screen'), wsUrl, {
+    credentials: { password: s.otp || '' },
+  });
+  rfb.scaleViewport = true;
+  rfb.resizeSession = false;
+
+  rfb.addEventListener('connect', () => setStatus('ok', 'Conectado (auditado)'));
+  rfb.addEventListener('disconnect', (e) => {
+    setStatus('err', e.detail.clean ? 'Sessão encerrada.' : 'Conexão perdida.');
+  });
+  rfb.addEventListener('credentialsrequired', () => {
+    rfb.sendCredentials({ password: s.otp || '' });
+  });
+}
+
+start().catch(err => setStatus('err', 'Erro: ' + err.message));
+</script>
+</body>
+</html>

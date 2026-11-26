@@ -10,7 +10,7 @@ MASTER_KEY=/etc/viaunix/master.key
 SSL_DIR=/etc/viaunix/ssl
 
 apt-get update
-apt-get install -y python3-venv python3-pip openssl postgresql-client
+apt-get install -y python3-venv python3-pip openssl postgresql-client novnc
 
 install -d -m 700 /etc/viaunix "$SSL_DIR"
 install -d -m 755 "$MGR_DIR"

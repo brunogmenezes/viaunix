@@ -479,20 +479,17 @@ function watchRemoteSession(sid, hostname) {
 
       if (s.status === 'approved') {
         toast('Acesso remoto autorizado em ' + hostname + '!', 'ok');
+        const vncUrl = '/vnc.html?session=' + sid;
         openModal(`
           <h3 style="color:var(--ok)">✔ Acesso Autorizado — ${esc(hostname)}</h3>
-          <p class="sub" style="font-size:13px">
+          <p class="sub" style="font-size:13px;line-height:1.5">
             Autorizado por <strong>${esc(s.station_user || 'colaborador')}</strong> em ${fmtDate(s.responded_at)}.
-            Use o cliente RustDesk apontando para o servidor interno <strong>172.16.152.2</strong>:
+            A tela remota abre direto no navegador (sem instalar nenhum programa e com auditoria completa).
           </p>
-          <label>ID RustDesk da Estação</label>
-          <div class="secret-row"><code>${esc(s.rustdesk_id || '(aguardando ID)')}</code><button class="sm" onclick="copyText('${esc(s.rustdesk_id)}','ID RustDesk')">Copiar</button></div>
-          <label>Senha Temporária Única (desta sessão)</label>
-          <div class="secret-row"><code>${esc(s.otp)}</code><button class="sm" onclick="copyText('${esc(s.otp)}','Senha temporária')">Copiar</button></div>
           <div class="modal-footer" style="justify-content:space-between">
-            <button class="danger" onclick="endRemote(${sid},'${esc(hostname)}')">Encerrar sessão e revogar senha</button>
+            <button class="danger" onclick="endRemote(${sid},'${esc(hostname)}')">Encerrar sessão</button>
             <div style="display:flex;gap:8px">
-              ${s.rustdesk_id ? `<a href="rustdesk://${esc(s.rustdesk_id)}" style="text-decoration:none"><button class="ok" type="button">Abrir no RustDesk</button></a>` : ''}
+              <button class="ok" onclick="window.open('${vncUrl}','viaunix_vnc_${sid}','width=1280,height=800')">Abrir Tela Remota Agora</button>
               <button class="ghost" onclick="closeModal()">Fechar</button>
             </div>
           </div>

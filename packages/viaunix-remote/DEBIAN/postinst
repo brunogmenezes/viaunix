@@ -1,14 +1,18 @@
 #!/bin/sh
 set -e
 if [ "$1" = configure ]; then
-    # 1. Remove o antigo meshagent (MeshCentral) se ainda estiver instalado
+    # 1. Remove/desativa agentes antigos (MeshCentral e RustDesk)
     if systemctl is-active --quiet meshagent.service 2>/dev/null || [ -x /usr/local/mesh_services/meshagent/meshagent ]; then
         systemctl stop meshagent.service >/dev/null 2>&1 || true
         systemctl disable meshagent.service >/dev/null 2>&1 || true
         /usr/local/mesh_services/meshagent/meshagent -fulluninstall >/dev/null 2>&1 || true
     fi
+    if systemctl is-active --quiet rustdesk.service 2>/dev/null || systemctl is-enabled --quiet rustdesk.service 2>/dev/null; then
+        systemctl stop rustdesk.service >/dev/null 2>&1 || true
+        systemctl disable rustdesk.service >/dev/null 2>&1 || true
+    fi
 
-    # 2. Mantem X11 no GDM para captura de tela limpa pelo RustDesk
+    # 2. Mantem X11 no GDM para captura de tela limpa pelo x11vnc
     for f in /etc/gdm3/daemon.conf /etc/gdm3/custom.conf; do
         if [ -f "$f" ]; then
             if grep -qE "^[#[:space:]]*WaylandEnable=" "$f"; then
@@ -20,12 +24,5 @@ if [ "$1" = configure ]; then
             fi
         fi
     done
-
-    # 3. Aplica configuracao do servidor RustDesk proprio e ativa servico
-    /usr/sbin/viaunix-rustdesk-apply || true
-    systemctl enable rustdesk.service >/dev/null 2>&1 || true
-    if [ -d /run/systemd/system ] && ! grep -qw "boot=live" /proc/cmdline 2>/dev/null; then
-        systemctl restart rustdesk.service >/dev/null 2>&1 || true
-    fi
 fi
 exit 0

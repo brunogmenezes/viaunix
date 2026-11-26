@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.2.0] - 2026-11-26
+
+### Alterado
+- **Acesso remoto nativo embutido no ViaUnix Manager (noVNC):** removido o RustDesk (`viaunix-remote` 3.0.0 instala apenas `x11vnc` e desativa `rustdesk`/`meshagent`); `viaunix-agent` 1.2.0 sobe `x11vnc` efêmero em `127.0.0.1` + túnel WebSocket reverso (`viaunix-vnc-tunnel`) na porta `8088` após autorização do colaborador; `manager/app.py` faz o relay WebSocket `/ws/vnc/*` e serve `/novnc` + `vnc.html` direto no navegador (zero app no PC do suporte, zero IP/chave/senha manual, auditoria completa de conexão e desconexão).
+- Release `v1.2.0` (`VERSION`, `viaunix-release` 1.2.0, `os-release`, `issue`, `branding.desc`).
+
 ## [1.1.3] - 2026-11-26
 
 ### Corrigido

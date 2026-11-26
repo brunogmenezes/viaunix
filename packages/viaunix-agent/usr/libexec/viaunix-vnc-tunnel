@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""ViaUnix - Tunel WebSocket reverso (RFC 6455 binario, pure stdlib) entre x11vnc local e ViaUnix Manager.
+
+Uso: viaunix-vnc-tunnel <ws_url> <agent_token> <local_vnc_port>
+"""
+
+import base64
+import os
+import select
+import socket
+import ssl
+import struct
+import sys
+import urllib.parse
+
+
+def recv_exact(sock: socket.socket, n: int) -> bytes:
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise EOFError("socket closed")
+        buf.extend(chunk)
+    return bytes(buf)
+
+
+def ws_connect(url: str, token: str) -> socket.socket:
+    u = urllib.parse.urlparse(url)
+    use_tls = u.scheme == "wss"
+    host = u.hostname or "127.0.0.1"
+    port = u.port or (443 if use_tls else 80)
+    path = u.path + (f"?{u.query}" if u.query else "")
+
+    raw = socket.create_connection((host, port), timeout=15)
+    sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host) if use_tls else raw
+
+    key = base64.b64encode(os.urandom(16)).decode("ascii")
+    req = (
+        f"GET {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"X-Agent-Token: {token}\r\n"
+        f"\r\n"
+    ).encode("ascii")
+    sock.sendall(req)
+
+    # Le cabecalho HTTP ate \r\n\r\n
+    resp = bytearray()
+    while b"\r\n\r\n" not in resp:
+        b = sock.recv(1)
+        if not b:
+            raise RuntimeError("handshake fechado")
+        resp.extend(b)
+        if len(resp) > 8192:
+            raise RuntimeError("handshake muito grande")
+    first_line = resp.split(b"\r\n", 1)[0].decode("ascii", errors="replace")
+    if "101" not in first_line:
+        raise RuntimeError(f"handshake recusado: {first_line}")
+    sock.settimeout(None)
+    return sock
+
+
+def ws_send_frame(sock: socket.socket, opcode: int, payload: bytes) -> None:
+    mask = os.urandom(4)
+    length = len(payload)
+    header = bytearray([0x80 | (opcode & 0x0F)])
+    if length < 126:
+        header.append(0x80 | length)
+    elif length < 65536:
+        header.append(0x80 | 126)
+        header.extend(struct.pack("!H", length))
+    else:
+        header.append(0x80 | 127)
+        header.extend(struct.pack("!Q", length))
+    header.extend(mask)
+    masked = bytes(b ^ mask[i & 3] for i, b in enumerate(payload))
+    sock.sendall(bytes(header) + masked)
+
+
+def ws_recv_frame(sock: socket.socket) -> tuple[int, bytes]:
+    b1, b2 = recv_exact(sock, 2)
+    opcode = b1 & 0x0F
+    masked = bool(b2 & 0x80)
+    length = b2 & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", recv_exact(sock, 2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", recv_exact(sock, 8))[0]
+    mask = recv_exact(sock, 4) if masked else None
+    data = recv_exact(sock, length) if length else b""
+    if mask:
+        data = bytes(b ^ mask[i & 3] for i, b in enumerate(data))
+    return opcode, data
+
+
+def bridge(ws_url: str, token: str, vnc_port: int) -> int:
+    vnc = socket.create_connection(("127.0.0.1", vnc_port), timeout=10)
+    vnc.settimeout(None)
+    ws = ws_connect(ws_url, token)
+
+    try:
+        while True:
+            rlist, _, _ = select.select([vnc, ws], [], [], 30.0)
+            if not rlist:
+                ws_send_frame(ws, 0x9, b"ping")
+                continue
+            if vnc in rlist:
+                chunk = vnc.recv(32768)
+                if not chunk:
+                    break
+                ws_send_frame(ws, 0x2, chunk)
+            if ws in rlist:
+                opcode, data = ws_recv_frame(ws)
+                if opcode == 0x8:  # close
+                    break
+                if opcode == 0x9:  # ping
+                    ws_send_frame(ws, 0xA, data)
+                elif opcode in (0x1, 0x2) and data:
+                    vnc.sendall(data)
+    except Exception:
+        pass
+    finally:
+        for s in (vnc, ws):
+            try:
+                s.close()
+            except Exception:
+                pass
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        sys.exit(2)
+    sys.exit(bridge(sys.argv[1], sys.argv[2], int(sys.argv[3])))

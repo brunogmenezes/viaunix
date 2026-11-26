@@ -9,6 +9,7 @@
   ou recusa na tela da estacao -> senha temporaria unica -> log completo de tudo.
 """
 
+import asyncio
 import base64
 import csv
 import datetime
@@ -27,8 +28,9 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 CONF_PATH = os.environ.get("VIAUNIX_MANAGER_CONF", "/etc/viaunix/manager.conf")
@@ -266,6 +268,11 @@ def require_admin(request: Request) -> str:
 
 
 app = FastAPI(title="ViaUnix Manager", docs_url=None, redoc_url=None)
+if os.path.isdir("/usr/share/novnc"):
+    app.mount("/novnc", StaticFiles(directory="/usr/share/novnc"), name="novnc")
+
+# Relay WebSocket VNC em memoria: session_id -> {"agent": WebSocket, "viewer": WebSocket, "ready": asyncio.Event}
+ACTIVE_VNC: dict[int, dict] = {}
 
 
 @app.middleware("http")
@@ -353,6 +360,11 @@ def health():
 @app.get("/")
 def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/vnc.html")
+def vnc_viewer():
+    return FileResponse(os.path.join(STATIC_DIR, "vnc.html"))
 
 
 # --- Autenticacao do Painel Web ---
@@ -740,7 +752,7 @@ def get_remote_session(session_id: int, admin: str = Depends(require_admin)):
 
 
 @app.post("/api/remote/{session_id}/end")
-def end_remote_session(session_id: int, request: Request, admin: str = Depends(require_admin)):
+async def end_remote_session(session_id: int, request: Request, admin: str = Depends(require_admin)):
     with db_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("SELECT id, machine_id, hostname, status FROM remote_sessions WHERE id=%s", (session_id,))
@@ -752,13 +764,125 @@ def end_remote_session(session_id: int, request: Request, admin: str = Depends(r
                 "UPDATE remote_sessions SET status='ended', otp_enc='', ended_at=NOW() WHERE id=%s",
                 (session_id,),
             )
-            # Invalida a senha temporaria na estacao via comando na fila
-            cur.execute(
-                "INSERT INTO commands (machine_id, action, payload, requested_by) VALUES (%s, 'shell', %s, %s)",
-                (rs["machine_id"], "/usr/sbin/viaunix-remote-revoke || true", admin),
-            )
             add_audit(cur, admin, "remote_ended", rs["hostname"], client_ip(request), f"sessao=#{session_id} encerrada")
+
+    # Fecha imediatamente os WebSockets (o agente encerra o x11vnc ao perder o tunel)
+    slot = ACTIVE_VNC.pop(session_id, None)
+    if slot:
+        for key in ("viewer", "agent"):
+            ws = slot.get(key)
+            if ws:
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
     return {"ok": True}
+
+
+async def _relay_ws(src: WebSocket, dst: WebSocket) -> None:
+    try:
+        while True:
+            msg = await src.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
+            if msg.get("bytes") is not None:
+                await dst.send_bytes(msg["bytes"])
+            elif msg.get("text") is not None:
+                await dst.send_text(msg["text"])
+    except Exception:
+        pass
+
+
+@app.websocket("/ws/vnc/agent/{session_id}")
+async def ws_vnc_agent(websocket: WebSocket, session_id: int):
+    token = websocket.headers.get("x-agent-token", "")
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, hostname FROM machines WHERE agent_token_hash=%s", (sha256_hex(token),))
+            m = cur.fetchone()
+            if not m:
+                await websocket.close(code=1008)
+                return
+            cur.execute(
+                "SELECT id, status FROM remote_sessions WHERE id=%s AND machine_id=%s",
+                (session_id, m["id"]),
+            )
+            rs = cur.fetchone()
+            if not rs or rs["status"] != "approved":
+                await websocket.close(code=1008)
+                return
+
+    await websocket.accept()
+    slot = ACTIVE_VNC.setdefault(session_id, {"agent": None, "viewer": None, "ready": asyncio.Event(), "done": asyncio.Event()})
+    slot["agent"] = websocket
+    slot["ready"].set()
+    try:
+        await slot["done"].wait()
+    finally:
+        ACTIVE_VNC.pop(session_id, None)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+@app.websocket("/ws/vnc/viewer/{session_id}")
+async def ws_vnc_viewer(websocket: WebSocket, session_id: int):
+    admin = parse_session_cookie(websocket.cookies.get(COOKIE_NAME))
+    if not admin:
+        await websocket.close(code=1008)
+        return
+
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, hostname, status FROM remote_sessions WHERE id=%s", (session_id,))
+            rs = cur.fetchone()
+            if not rs or rs["status"] != "approved":
+                await websocket.close(code=1008)
+                return
+            hostname = rs["hostname"]
+
+    # Subprotocolo 'binary' esperado pelo noVNC
+    subproto = "binary" if "binary" in websocket.headers.get("sec-websocket-protocol", "") else None
+    await websocket.accept(subprotocol=subproto)
+
+    slot = ACTIVE_VNC.setdefault(session_id, {"agent": None, "viewer": None, "ready": asyncio.Event(), "done": asyncio.Event()})
+    try:
+        await asyncio.wait_for(slot["ready"].wait(), timeout=20.0)
+    except asyncio.TimeoutError:
+        await websocket.close(code=1011)
+        return
+
+    agent_ws = slot.get("agent")
+    if not agent_ws:
+        await websocket.close(code=1011)
+        return
+    slot["viewer"] = websocket
+
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            add_audit(cur, admin, "remote_connected", hostname, "", f"sessao=#{session_id} tela aberta no navegador")
+
+    try:
+        t1 = asyncio.create_task(_relay_ws(websocket, agent_ws))
+        t2 = asyncio.create_task(_relay_ws(agent_ws, websocket))
+        done, pending = await asyncio.wait({t1, t2}, return_when=asyncio.FIRST_COMPLETED)
+        for p in pending:
+            p.cancel()
+    finally:
+        slot["done"].set()
+        ACTIVE_VNC.pop(session_id, None)
+        with db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE remote_sessions SET status='ended', otp_enc='', ended_at=COALESCE(ended_at, NOW()) WHERE id=%s AND status='approved'",
+                    (session_id,),
+                )
+                add_audit(cur, admin, "remote_disconnected", hostname, "", f"sessao=#{session_id} desconectada")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @app.get("/api/remote")

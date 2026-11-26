@@ -1,11 +1,11 @@
 Package: viaunix-remote
-Version: 2.0.2
+Version: 3.0.0
 Architecture: all
 Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
 Section: admin
 Priority: optional
-Depends: rustdesk, systemd
-Description: Acesso remoto auditado do ViaUnix via RustDesk proprio
- Substitui o MeshCentral pelo RustDesk apontando exclusivamente para o
- servidor interno da empresa (172.16.152.2), com autorizacao do usuario
- gerenciada pelo ViaUnix Manager + viaunix-agent.
+Depends: x11vnc, systemd
+Description: Suporte a tela remota nativa (noVNC) do ViaUnix Manager
+ Instala o x11vnc (usado apenas em 127.0.0.1 sob demanda apos autorizacao do
+ colaborador), garante sessao X11 no GDM (WaylandEnable=false) e remove os
+ antigos agentes MeshCentral e RustDesk.

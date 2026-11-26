@@ -1,7 +1,0 @@
-#!/bin/sh
-# Revoga a senha temporaria do RustDesk substituindo-a por uma senha aleatoria descartavel
-set -e
-if command -v rustdesk >/dev/null 2>&1; then
-    RAND=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
-    rustdesk --password "$RAND" >/dev/null 2>&1 || true
-fi
