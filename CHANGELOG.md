@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.1.2] - 2026-11-26
+
+### Corrigido
+- `viaunix-agent` 1.1.2: injeta `DISPLAY`/`XAUTHORITY`/`WAYLAND_DISPLAY` via `/usr/bin/env` após o `runuser` (que limpava essas variáveis por padrão), corrige `gi.require_version("Gdk", "3.0")` no `viaunix-remote-prompt` e registra as últimas linhas do `stderr` na auditoria.
+- Release `v1.1.2` (`VERSION`, `viaunix-release` 1.1.2, `os-release`, `issue`, `branding.desc`).
+
 ## [1.1.1] - 2026-11-26
 
 ### Corrigido

@@ -282,24 +282,26 @@ def handle_remote_request(cfg: dict, token: str, rreq: dict) -> None:
         return
 
     try:
+        # Passa as variaveis via /usr/bin/env APOS o runuser (runuser limpa DISPLAY/XAUTHORITY por padrao)
+        env_args = [f"{k}={v}" for k, v in env.items()]
         res = subprocess.run(
-            ["/usr/sbin/runuser", "-u", user, "--", "/usr/libexec/viaunix-remote-prompt", operator, reason],
-            env=env,
+            ["/usr/sbin/runuser", "-u", user, "--", "/usr/bin/env"] + env_args + ["/usr/libexec/viaunix-remote-prompt", operator, reason],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             timeout=70,
         )
         approved = (res.returncode == 0)
-        err_out = (res.stderr or "").strip()
-        if err_out:
-            print(f"[viaunix-agent] prompt stderr ({user}): {err_out}", file=sys.stderr, flush=True)
+        err_lines = [l.strip() for l in (res.stderr or "").splitlines() if l.strip()]
+        err_tail = " | ".join(err_lines[-2:]) if err_lines else ""
+        if err_tail:
+            print(f"[viaunix-agent] prompt stderr ({user}): {err_tail}", file=sys.stderr, flush=True)
     except Exception as exc:
         post_json(respond_url, {"approved": False, "station_user": user, "detail": f"erro prompt: {exc}"}, hdr)
         return
 
     if not approved:
-        detail = f"recusado ou expirado ({err_out[:120]})" if err_out else "recusado ou expirado"
+        detail = f"recusado ou expirado ({err_tail[:140]})" if err_tail else "recusado ou expirado"
         post_json(respond_url, {"approved": False, "station_user": user, "detail": detail}, hdr)
         return
 

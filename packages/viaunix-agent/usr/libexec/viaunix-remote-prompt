@@ -4,6 +4,7 @@
 import sys
 import gi
 
+gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
@@ -51,9 +52,11 @@ class RemotePrompt(Gtk.Window):
 
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        screen = Gdk.Screen.get_default()
+        if screen is not None:
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
 
         self.get_style_context().add_class("viaunix-prompt")
         self.set_position(Gtk.WindowPosition.CENTER)
