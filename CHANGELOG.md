@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.1.3] - 2026-11-26
+
+### Corrigido
+- `viaunix-remote` 2.0.2: `viaunix-rustdesk-apply` agora grava `RustDesk2.toml` também em todos os `/home/*` já existentes (com `chown` para o usuário), resolvendo o erro `target device is offline or does not exist` ao conectar via RustDesk.
+- Release `v1.1.3` (`VERSION`, `viaunix-release` 1.1.3, `os-release`, `issue`, `branding.desc`).
+
 ## [1.1.2] - 2026-11-26
 
 ### Corrigido
