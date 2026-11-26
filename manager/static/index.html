@@ -3,100 +3,196 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ViaUnix Manager</title>
+<title>ViaUnix Manager — Central de Gestão</title>
 <style>
   :root {
-    --bg: #081529; --panel: #0e2240; --panel2: #132c52; --border: #1e3f73;
-    --text: #eef4ff; --muted: #93aed6; --accent: #ff9f1a; --ok: #2ecc71; --err: #e74c3c; --blue: #2980b9;
+    --bg: #06101f; --surface: #0c1b33; --surface2: #112647; --border: #1d3b6b;
+    --text: #eef4ff; --muted: #8ea9d4; --accent: #ff9f1a; --accent-hover: #ffb347;
+    --ok: #2ecc71; --warn: #f1c40f; --err: #e74c3c; --blue: #2e86de;
+    --shadow: 0 12px 32px rgba(0,0,0,.45);
   }
-  * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-  body { margin: 0; background: var(--bg); color: var(--text); }
-  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
-  header h1 { margin: 0; font-size: 18px; color: var(--accent); letter-spacing: .5px; }
-  main { max-width: 1280px; margin: 24px auto; padding: 0 20px; }
+  * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  body { margin: 0; background: radial-gradient(circle at top right, #0e284e 0%, var(--bg) 55%); color: var(--text); min-height: 100vh; }
+  header {
+    background: rgba(12, 27, 51, 0.9); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border); padding: 14px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .brand h1 { margin: 0; font-size: 18px; letter-spacing: .4px; font-weight: 700; }
+  .brand span { font-size: 12px; color: var(--muted); font-weight: 500; }
+  main { max-width: 1360px; margin: 26px auto; padding: 0 22px 48px; }
   .hidden { display: none !important; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
-  .login-box { max-width: 380px; margin: 90px auto; }
-  label { display: block; font-size: 13px; color: var(--muted); margin-top: 12px; }
-  input, select, textarea { width: 100%; padding: 9px 11px; margin-top: 5px; border-radius: 6px; border: 1px solid var(--border); background: #071222; color: var(--text); }
-  button { cursor: pointer; border: 0; border-radius: 6px; padding: 8px 13px; font-weight: 600; font-size: 13px; background: var(--blue); color: #fff; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .login-wrap { max-width: 400px; margin: 84px auto; }
+  .login-wrap h2 { margin: 0 0 6px; font-size: 22px; }
+  .login-wrap p { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  input, textarea {
+    width: 100%; padding: 10px 12px; margin-top: 6px; border-radius: 8px;
+    border: 1px solid var(--border); background: #071325; color: var(--text); font-size: 14px;
+    transition: border-color .15s;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+  button {
+    cursor: pointer; border: 0; border-radius: 8px; padding: 9px 14px;
+    font-weight: 600; font-size: 13px; background: var(--blue); color: #fff;
+    transition: transform .08s, filter .15s, background .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
   button:hover { filter: brightness(1.12); }
-  button.accent { background: var(--accent); color: #081529; }
-  button.danger { background: var(--err); }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.accent { background: var(--accent); color: #06101f; }
+  button.ok { background: var(--ok); color: #06101f; }
+  button.danger { background: var(--err); color: #fff; }
   button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  button.sm { padding: 5px 9px; font-size: 12px; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
-  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
-  .kpi .num { font-size: 28px; font-weight: 700; margin-top: 4px; }
-  .kpi .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; }
-  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .toolbar input { max-width: 320px; margin-top: 0; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-  .tabs button.active { background: var(--accent); color: #081529; }
+  button.sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; position: relative; overflow: hidden; }
+  .kpi .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+  .kpi .num { font-size: 30px; font-weight: 800; margin-top: 6px; }
+  .kpi.on .num { color: var(--ok); }
+  .kpi.off .num { color: var(--err); }
+  .kpi.vpn .num { color: var(--accent); }
+
+  .nav-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; }
+  .tabs button.active { background: var(--accent); color: #06101f; }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .toolbar input { max-width: 340px; margin-top: 0; }
+  .pills { display: flex; gap: 6px; }
+  .pill { background: #071325; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 999px; font-size: 12px; }
+  .pill.active { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-  .badge.on { background: rgba(46,204,113,.18); color: var(--ok); }
-  .badge.off { background: rgba(231,76,60,.18); color: var(--err); }
+  th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid rgba(29,59,107,.55); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge.on { background: rgba(46,204,113,.16); color: var(--ok); }
+  .badge.off { background: rgba(231,76,60,.16); color: var(--err); }
+  .badge.vpn { background: rgba(255,159,26,.16); color: var(--accent); }
+  .badge.warn { background: rgba(241,196,15,.16); color: var(--warn); }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  .bars { display: flex; flex-direction: column; gap: 4px; min-width: 125px; }
+  .bar-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .bar-track { flex: 1; height: 5px; background: #071325; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--blue); border-radius: 4px; }
+  .bar-fill.high { background: var(--err); }
+  .bar-fill.med { background: var(--warn); }
+
   .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; max-width: 680px; width: 100%; max-height: 88vh; overflow-y: auto; padding: 20px; }
-  pre { background: #050d1a; border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
-  .msg { margin-top: 10px; font-size: 13px; color: var(--err); }
+  .sub { font-size: 11px; color: var(--muted); }
+
+  /* Modais */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(3, 8, 18, .78); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px;
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px;
+    box-shadow: var(--shadow); animation: pop .14s ease-out;
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+  .modal h3 { margin: 0 0 8px; font-size: 18px; }
+  .modal-footer { margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
   .secret-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-  .secret-row code { flex: 1; background: #050d1a; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; }
+  .secret-row code { flex: 1; background: #06101f; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; color: var(--accent); word-break: break-all; }
+  pre { background: #050d1a; border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; margin: 8px 0 0; }
+
+  /* Toasts (substitui alert()) */
+  #toastStack { position: fixed; top: 18px; right: 20px; z-index: 90; display: flex; flex-direction: column; gap: 10px; max-width: 380px; }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border); border-left: 4px solid var(--blue);
+    border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow); font-size: 13px;
+    animation: slideIn .18s ease-out;
+  }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--err); }
+  .toast.warn { border-left-color: var(--accent); }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.25); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+<div id="toastStack"></div>
+
 <header>
-  <h1>ViaUnix Manager</h1>
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div>
+      <h1>ViaUnix Manager</h1>
+      <span>Gestão Corporativa &amp; Acesso Remoto Auditado</span>
+    </div>
+  </div>
   <div id="userBar" class="hidden" style="display:flex;gap:12px;align-items:center;">
-    <span id="userName" style="color:var(--muted);font-size:13px;"></span>
+    <span id="userName" class="sub" style="font-size:13px"></span>
     <button class="ghost sm" onclick="doLogout()">Sair</button>
   </div>
 </header>
 
 <main>
   <!-- Login -->
-  <section id="loginView" class="card login-box">
-    <h2 style="margin-top:0">Acesso Administrativo</h2>
-    <p style="font-size:13px;color:var(--muted);margin-top:0">Use seu usuario da TI (API Jupiter) ou a conta admin local.</p>
+  <section id="loginView" class="card login-wrap">
+    <h2>Acesso Administrativo</h2>
+    <p>Entre com seu usuário de TI (API Júpiter) ou conta local de emergência.</p>
     <form onsubmit="doLogin(event)">
-      <label>Usuario</label>
+      <label>Usuário</label>
       <input id="u" autocomplete="username" required>
       <label>Senha</label>
       <input id="p" type="password" autocomplete="current-password" required>
-      <button class="accent" style="width:100%;margin-top:16px" type="submit">Entrar</button>
-      <div id="loginMsg" class="msg"></div>
+      <button id="loginBtn" class="accent" style="width:100%;justify-content:center;margin-top:18px" type="submit">Entrar no Painel</button>
     </form>
   </section>
 
-  <!-- Dashboard -->
+  <!-- App -->
   <section id="appView" class="hidden">
     <div class="kpis">
-      <div class="kpi"><div class="lbl">Estacoes</div><div class="num" id="kpiTotal">0</div></div>
-      <div class="kpi"><div class="lbl">Online</div><div class="num" style="color:var(--ok)" id="kpiOnline">0</div></div>
-      <div class="kpi"><div class="lbl">Offline</div><div class="num" style="color:var(--err)" id="kpiOffline">0</div></div>
+      <div class="kpi"><div class="lbl">Total de Estações</div><div class="num" id="kpiTotal">0</div></div>
+      <div class="kpi on"><div class="lbl">Online Agora</div><div class="num" id="kpiOnline">0</div></div>
+      <div class="kpi off"><div class="lbl">Offline</div><div class="num" id="kpiOffline">0</div></div>
+      <div class="kpi vpn"><div class="lbl">Conectadas na VPN</div><div class="num" id="kpiVpn">0</div></div>
     </div>
 
-    <div class="tabs">
-      <button id="tabMachines" class="active" onclick="showTab('machines')">Maquinas</button>
-      <button id="tabAudit" class="ghost" onclick="showTab('audit')">Auditoria</button>
-      <button id="btnMesh" class="accent hidden" onclick="openMeshCentral()">Tela Remota (MeshCentral)</button>
+    <div class="nav-bar">
+      <div class="tabs">
+        <button id="tabMachines" class="active" onclick="showTab('machines')">Estações</button>
+        <button id="tabRemote" class="ghost" onclick="showTab('remote')">Sessões Remotas</button>
+        <button id="tabAudit" class="ghost" onclick="showTab('audit')">Auditoria</button>
+      </div>
+      <span class="sub" id="lastSync">Atualização automática a cada 5s</span>
     </div>
 
+    <!-- Aba Estações -->
     <div id="machinesPane" class="card">
       <div class="toolbar">
-        <input id="search" placeholder="Filtrar por hostname, IP, usuario ou MAC..." oninput="renderMachines()">
-        <button class="ghost" onclick="loadMachines()">Atualizar</button>
+        <input id="search" placeholder="Buscar por hostname, usuário, IP, VPN ou MAC..." oninput="renderMachines()">
+        <div class="pills">
+          <button class="pill active" id="fAll" onclick="setFilter('all')">Todas</button>
+          <button class="pill" id="fOn" onclick="setFilter('online')">Online</button>
+          <button class="pill" id="fOff" onclick="setFilter('offline')">Offline</button>
+          <button class="pill" id="fVpn" onclick="setFilter('vpn')">Com VPN</button>
+        </div>
+        <button class="ghost sm" style="margin-left:auto" onclick="loadMachines()">Atualizar agora</button>
       </div>
       <div style="overflow-x:auto">
         <table>
           <thead>
             <tr>
-              <th>Status</th><th>Hostname</th><th>Usuario logado</th><th>IP</th>
-              <th>CPU / RAM / Disco</th><th>Ultimo contato</th><th>Acoes</th>
+              <th>Status</th><th>Estação</th><th>Usuário / Rede</th><th>Recursos</th><th>Último contato</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="machinesBody"></tbody>
@@ -104,11 +200,32 @@
       </div>
     </div>
 
-    <div id="auditPane" class="card hidden">
-      <div class="toolbar"><button class="ghost" onclick="loadAudit()">Atualizar auditoria</button></div>
+    <!-- Aba Sessões Remotas -->
+    <div id="remotePane" class="card hidden">
+      <div class="toolbar">
+        <strong>Histórico de Acessos Remotos (com autorização do colaborador)</strong>
+        <button class="ghost sm" style="margin-left:auto" onclick="loadRemoteSessions()">Atualizar</button>
+      </div>
       <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Data/Hora</th><th>Ator</th><th>Acao</th><th>Maquina</th><th>IP</th><th>Detalhes</th></tr></thead>
+          <thead>
+            <tr><th>#</th><th>Estação</th><th>Operador TI</th><th>Colaborador</th><th>Motivo</th><th>Status</th><th>Solicitado</th><th>Respondido / Fim</th></tr>
+          </thead>
+          <tbody id="remoteBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Aba Auditoria -->
+    <div id="auditPane" class="card hidden">
+      <div class="toolbar">
+        <input id="auditSearch" placeholder="Filtrar auditoria por ator, ação ou máquina..." oninput="renderAudit()">
+        <button class="ghost sm" onclick="loadAudit()">Atualizar</button>
+        <button class="accent sm" style="margin-left:auto" onclick="window.location='/api/audit/export.csv'">Exportar CSV</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Data / Hora</th><th>Ator</th><th>Ação</th><th>Estação</th><th>IP</th><th>Detalhes</th></tr></thead>
           <tbody id="auditBody"></tbody>
         </table>
       </div>
@@ -122,213 +239,388 @@
 
 <script>
 let machines = [];
-let timer = null;
-let meshUrl = '';
+let auditRows = [];
+let statusFilter = 'all';
+let pollTimer = null;
+let remoteWatchTimer = null;
 
-function openMeshCentral() {
-  if (meshUrl) window.open(meshUrl, '_blank', 'noopener');
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso) { if (!iso) return '-'; try { return new Date(iso).toLocaleString('pt-BR'); } catch { return iso; } }
+function fmtUptime(sec) {
+  if (!sec && sec !== 0) return '-';
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  return (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+}
+
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastStack').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 4200);
+}
+
+function copyText(txt, label='Valor') {
+  navigator.clipboard.writeText(txt).then(() => toast(label + ' copiado para a área de transferência.', 'ok'))
+    .catch(() => toast('Não foi possível copiar automaticamente.', 'warn'));
 }
 
 async function api(url, opts={}) {
   const res = await fetch(url, { credentials: 'same-origin', headers: {'Content-Type':'application/json'}, ...opts });
-  if (res.status === 401 && !url.includes('/auth/login')) { showLogin(); throw new Error('401'); }
+  if (res.status === 401 && !url.includes('/auth/login')) { showLogin(); throw new Error('Sessão expirada'); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+  if (!res.ok) throw new Error(data.detail || ('Erro HTTP ' + res.status));
   return data;
-}
-
-function showLogin() {
-  clearInterval(timer);
-  document.getElementById('loginView').classList.remove('hidden');
-  document.getElementById('appView').classList.add('hidden');
-  document.getElementById('userBar').classList.add('hidden');
-}
-
-function showApp(user, mcUrl) {
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('appView').classList.remove('hidden');
-  document.getElementById('userBar').classList.remove('hidden');
-  document.getElementById('userName').textContent = 'Logado como: ' + user;
-  if (mcUrl) {
-    meshUrl = mcUrl;
-    document.getElementById('btnMesh').classList.remove('hidden');
-  }
-  loadMachines();
-  clearInterval(timer);
-  timer = setInterval(loadMachines, 15000);
-}
-
-async function doLogin(e) {
-  e.preventDefault();
-  document.getElementById('loginMsg').textContent = '';
-  try {
-    const d = await api('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ usuario: document.getElementById('u').value, senha: document.getElementById('p').value })
-    });
-    document.getElementById('p').value = '';
-    const me = await api('/api/auth/me');
-    showApp(me.usuario, me.meshcentral_url);
-  } catch (err) {
-    document.getElementById('loginMsg').textContent = err.message;
-  }
-}
-
-async function doLogout() {
-  await api('/api/auth/logout', { method: 'POST' }).catch(()=>{});
-  showLogin();
-}
-
-function showTab(t) {
-  const isM = t === 'machines';
-  document.getElementById('machinesPane').classList.toggle('hidden', !isM);
-  document.getElementById('auditPane').classList.toggle('hidden', isM);
-  document.getElementById('tabMachines').className = isM ? 'active' : 'ghost';
-  document.getElementById('tabAudit').className = isM ? 'ghost' : 'active';
-  if (!isM) loadAudit();
-}
-
-function fmtDate(iso) {
-  if (!iso) return '-';
-  try { return new Date(iso).toLocaleString('pt-BR'); } catch { return iso; }
-}
-
-function fmtPct(v) { return (v === null || v === undefined) ? '-' : Math.round(v) + '%'; }
-
-async function loadMachines() {
-  try {
-    const d = await api('/api/machines');
-    machines = d.machines || [];
-    const on = machines.filter(m => m.online).length;
-    document.getElementById('kpiTotal').textContent = machines.length;
-    document.getElementById('kpiOnline').textContent = on;
-    document.getElementById('kpiOffline').textContent = machines.length - on;
-    renderMachines();
-  } catch {}
-}
-
-function esc(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function renderMachines() {
-  const q = (document.getElementById('search').value || '').toLowerCase();
-  const rows = machines.filter(m =>
-    [m.hostname, m.usuario, m.logged_user, m.ip_local, m.ip_origem, m.mac].join(' ').toLowerCase().includes(q)
-  );
-  document.getElementById('machinesBody').innerHTML = rows.map(m => `
-    <tr>
-      <td><span class="badge ${m.online ? 'on':'off'}">${m.online ? 'ONLINE':'OFFLINE'}</span></td>
-      <td><strong>${esc(m.hostname)}</strong><br><span style="font-size:11px;color:var(--muted)">${esc(m.mac || m.usuario)}</span></td>
-      <td>${esc(m.logged_user || '-')}</td>
-      <td>${esc(m.ip_local || m.ip_origem || '-')}</td>
-      <td>${fmtPct(m.cpu_percent)} / ${fmtPct(m.mem_percent)} / ${fmtPct(m.disk_percent)}</td>
-      <td style="font-size:12px;color:var(--muted)">${fmtDate(m.last_seen)}</td>
-      <td>
-        <div class="actions">
-          <button class="sm accent" onclick="reveal(${m.id})">Senhas</button>
-          ${meshUrl ? '<button class="sm" onclick="openMeshCentral()">Tela</button>' : ''}
-          <button class="sm" onclick="sendCmd(${m.id},'apt_upgrade','${esc(m.hostname)}')">Atualizar</button>
-          <button class="sm" onclick="sendCmd(${m.id},'lock_screen','${esc(m.hostname)}')">Bloquear</button>
-          <button class="sm danger" onclick="sendCmd(${m.id},'reboot','${esc(m.hostname)}')">Reiniciar</button>
-          <button class="sm ghost" onclick="openConsole(${m.id},'${esc(m.hostname)}')">Console</button>
-        </div>
-      </td>
-    </tr>
-  `).join('') || '<tr><td colspan="7" style="color:var(--muted)">Nenhuma maquina encontrada.</td></tr>';
 }
 
 function openModal(html) {
   document.getElementById('modalContent').innerHTML = html;
   document.getElementById('modalBg').classList.remove('hidden');
 }
-function closeModal() { document.getElementById('modalBg').classList.add('hidden'); }
-function copyText(txt) { navigator.clipboard.writeText(txt); }
-
-async function reveal(id) {
-  try {
-    const d = await api('/api/machines/' + id + '/reveal', { method: 'POST' });
-    openModal(`
-      <h3 style="margin-top:0">Cofre de Credenciais — ${esc(d.hostname)}</h3>
-      <p style="font-size:12px;color:var(--muted)">Acesso registrado na auditoria. Senhas descriptografadas sob demanda (AES-256-GCM).</p>
-      <label>Usuario admin local (sudo)</label>
-      <div class="secret-row"><code>${esc(d.usuario)}</code><button class="sm" onclick="copyText('${esc(d.usuario)}')">Copiar</button></div>
-      <label>Senha admin local</label>
-      <div class="secret-row"><code>${esc(d.senha)}</code><button class="sm" onclick="copyText('${esc(d.senha)}')">Copiar</button></div>
-      <label>Senha root</label>
-      <div class="secret-row"><code>${esc(d.root_senha || '(nao definida)')}</code><button class="sm" onclick="copyText('${esc(d.root_senha)}')">Copiar</button></div>
-      <div style="margin-top:16px;display:flex;gap:8px;justify-content:space-between">
-        <button class="danger sm" onclick="sendCmd(${id},'rotate_password','${esc(d.hostname)}')">Rotacionar senhas agora</button>
-        <button class="ghost" onclick="closeModal()">Fechar</button>
-      </div>
-    `);
-  } catch (err) { alert(err.message); }
+function closeModal() {
+  clearInterval(remoteWatchTimer);
+  remoteWatchTimer = null;
+  document.getElementById('modalBg').classList.add('hidden');
 }
 
-async function sendCmd(id, action, hostname, payload='') {
-  const labels = {
-    reboot: 'Reiniciar ' + hostname + ' agora?',
-    shutdown: 'Desligar ' + hostname + ' agora?',
-    apt_upgrade: 'Executar apt update && full-upgrade em ' + hostname + '?',
-    lock_screen: 'Bloquear tela de ' + hostname + '?',
-    rotate_password: 'Gerar e aplicar NOVAS senhas aleatorias em ' + hostname + '?',
-    shell: 'Executar comando em ' + hostname + '?'
-  };
-  if (action !== 'shell' && !confirm(labels[action] || 'Confirmar acao?')) return;
-  try {
-    await api('/api/machines/' + id + '/command', { method: 'POST', body: JSON.stringify({ action, payload }) });
-    alert('Comando enfileirado para ' + hostname + '. Sera executado no proximo heartbeat (ate 30s).');
-  } catch (err) { alert(err.message); }
-}
-
-async function openConsole(id, hostname) {
-  const d = await api('/api/machines/' + id + '/commands');
-  const hist = (d.commands || []).map(c => `
-    <div style="margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
-      <div style="font-size:12px;color:var(--muted)">
-        #${c.id} <strong>${esc(c.action)}</strong> ${c.payload ? '('+esc(c.payload)+')':''} — <strong>${esc(c.status)}</strong> por ${esc(c.requested_by)} em ${fmtDate(c.created_at)}
-      </div>
-      ${c.output ? '<pre>'+esc(c.output)+'</pre>' : ''}
-    </div>
-  `).join('') || '<p style="color:var(--muted);font-size:13px">Nenhum comando executado ainda.</p>';
-
+function confirmModal(title, message, confirmLabel, danger, onConfirm) {
   openModal(`
-    <h3 style="margin-top:0">Console & Historico — ${esc(hostname)}</h3>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input id="shellInput" placeholder="Ex: uptime && df -h" style="margin-top:0">
-      <button class="accent" onclick="runShell(${id},'${esc(hostname)}')">Executar</button>
-      <button class="danger sm" onclick="sendCmd(${id},'shutdown','${esc(hostname)}')">Desligar</button>
+    <h3>${esc(title)}</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.5">${esc(message)}</p>
+    <div class="modal-footer">
+      <button class="ghost" onclick="closeModal()">Cancelar</button>
+      <button id="confirmOkBtn" class="${danger ? 'danger':'accent'}">${esc(confirmLabel)}</button>
     </div>
-    <div style="max-height:360px;overflow-y:auto">${hist}</div>
-    <div style="margin-top:12px;text-align:right">
-      <button class="ghost sm" onclick="openConsole(${id},'${esc(hostname)}')">Recarregar</button>
-      <button class="ghost sm" onclick="closeModal()">Fechar</button>
+  `);
+  document.getElementById('confirmOkBtn').onclick = async () => { closeModal(); await onConfirm(); };
+}
+
+function showLogin() {
+  clearInterval(pollTimer);
+  closeModal();
+  document.getElementById('loginView').classList.remove('hidden');
+  document.getElementById('appView').classList.add('hidden');
+  document.getElementById('userBar').classList.add('hidden');
+}
+
+function showApp(user) {
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+  document.getElementById('userBar').classList.remove('hidden');
+  document.getElementById('userName').textContent = 'Operador: ' + user;
+  loadMachines();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(loadMachines, 5000);
+}
+
+async function doLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  try {
+    const d = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ usuario: document.getElementById('u').value, senha: document.getElementById('p').value })
+    });
+    document.getElementById('p').value = '';
+    toast('Bem-vindo, ' + d.usuario + '!', 'ok');
+    showApp(d.usuario);
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function doLogout() {
+  await api('/api/auth/logout', { method: 'POST' }).catch(()=>{});
+  toast('Sessão encerrada.', 'warn');
+  showLogin();
+}
+
+function showTab(t) {
+  ['machines','remote','audit'].forEach(k => {
+    document.getElementById(k + 'Pane').classList.toggle('hidden', k !== t);
+    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
+    btn.className = (k === t) ? 'active' : 'ghost';
+  });
+  if (t === 'remote') loadRemoteSessions();
+  if (t === 'audit') loadAudit();
+}
+
+function setFilter(f) {
+  statusFilter = f;
+  document.getElementById('fAll').classList.toggle('active', f === 'all');
+  document.getElementById('fOn').classList.toggle('active', f === 'online');
+  document.getElementById('fOff').classList.toggle('active', f === 'offline');
+  document.getElementById('fVpn').classList.toggle('active', f === 'vpn');
+  renderMachines();
+}
+
+async function loadMachines() {
+  try {
+    const d = await api('/api/machines');
+    machines = d.machines || [];
+    const on = machines.filter(m => m.online).length;
+    const vpn = machines.filter(m => m.online && m.vpn_ip).length;
+    document.getElementById('kpiTotal').textContent = machines.length;
+    document.getElementById('kpiOnline').textContent = on;
+    document.getElementById('kpiOffline').textContent = machines.length - on;
+    document.getElementById('kpiVpn').textContent = vpn;
+    document.getElementById('lastSync').textContent = 'Sincronizado às ' + new Date().toLocaleTimeString('pt-BR');
+    renderMachines();
+  } catch {}
+}
+
+function barHtml(lbl, val) {
+  const pct = (val === null || val === undefined) ? 0 : Math.min(100, Math.round(val));
+  const cls = pct >= 85 ? 'high' : (pct >= 65 ? 'med' : '');
+  const txt = (val === null || val === undefined) ? '-' : pct + '%';
+  return `<div class="bar-row"><span style="width:32px">${lbl}</span><div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div><span style="width:30px;text-align:right">${txt}</span></div>`;
+}
+
+function renderMachines() {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const rows = machines.filter(m => {
+    if (statusFilter === 'online' && !m.online) return false;
+    if (statusFilter === 'offline' && m.online) return false;
+    if (statusFilter === 'vpn' && !(m.online && m.vpn_ip)) return false;
+    return [m.hostname, m.usuario, m.logged_user, m.ip_local, m.ip_origem, m.vpn_ip, m.mac, m.rustdesk_id].join(' ').toLowerCase().includes(q);
+  });
+
+  document.getElementById('machinesBody').innerHTML = rows.map(m => `
+    <tr>
+      <td>
+        <span class="badge ${m.online ? 'on':'off'}"><span class="pulse"></span>${m.online ? 'ONLINE':'OFFLINE'}</span>
+        ${m.vpn_ip ? `<div style="margin-top:4px"><span class="badge vpn">VPN ${esc(m.vpn_ip)}</span></div>` : ''}
+      </td>
+      <td>
+        <strong>${esc(m.hostname)}</strong>
+        <div class="sub">${esc(m.os_version || 'ViaUnix')}</div>
+        <div class="sub">MAC: ${esc(m.mac || '-')} · Uptime: ${fmtUptime(m.uptime_sec)}</div>
+      </td>
+      <td>
+        <div><strong>${esc(m.logged_user || '(tela de login)')}</strong></div>
+        <div class="sub">IP: ${esc(m.ip_local || m.ip_origem || '-')}</div>
+        ${m.rustdesk_id ? `<div class="sub">RustDesk: ${esc(m.rustdesk_id)}</div>` : ''}
+      </td>
+      <td>
+        <div class="bars">
+          ${barHtml('CPU', m.cpu_percent)}
+          ${barHtml('RAM', m.mem_percent)}
+          ${barHtml('DSK', m.disk_percent)}
+        </div>
+      </td>
+      <td class="sub">${fmtDate(m.last_seen)}</td>
+      <td>
+        <div class="actions">
+          <button class="sm ok" ${m.online ? '' : 'disabled'} onclick="openRemoteModal(${m.id},'${esc(m.hostname)}')">Acesso Remoto</button>
+          <button class="sm accent" onclick="reveal(${m.id})">Cofre</button>
+          <button class="sm" ${m.online ? '' : 'disabled'} onclick="askCmd(${m.id},'apt_upgrade','${esc(m.hostname)}')">Atualizar</button>
+          <button class="sm ghost" ${m.online ? '' : 'disabled'} onclick="askCmd(${m.id},'lock_screen','${esc(m.hostname)}')">Bloquear</button>
+          <button class="sm danger" ${m.online ? '' : 'disabled'} onclick="askCmd(${m.id},'reboot','${esc(m.hostname)}')">Reiniciar</button>
+          <button class="sm ghost" onclick="openHistory(${m.id},'${esc(m.hostname)}')">Histórico</button>
+        </div>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="sub" style="padding:24px;text-align:center">Nenhuma estação encontrada com esse filtro.</td></tr>';
+}
+
+/* --- Fluxo de Acesso Remoto (estilo RustDesk com autorização do usuário) --- */
+function openRemoteModal(id, hostname) {
+  openModal(`
+    <h3>Solicitar Acesso Remoto — ${esc(hostname)}</h3>
+    <p class="sub" style="font-size:13px;line-height:1.5">
+      Uma janela será exibida na tela do colaborador mostrando seu nome e o motivo abaixo.
+      O acesso só é liberado se ele clicar em <strong>Autorizar</strong> (com senha temporária única e log completo de auditoria).
+    </p>
+    <label>Motivo do atendimento / número do chamado</label>
+    <input id="remoteReason" placeholder="Ex: Chamado #4821 — Configurar impressora / VPN" autofocus>
+    <div class="modal-footer">
+      <button class="ghost" onclick="closeModal()">Cancelar</button>
+      <button class="ok" id="btnSendRemote" onclick="submitRemoteRequest(${id},'${esc(hostname)}')">Enviar solicitação</button>
     </div>
   `);
 }
 
-async function runShell(id, hostname) {
-  const val = document.getElementById('shellInput').value.trim();
-  if (!val) return;
-  await sendCmd(id, 'shell', hostname, val);
-  openConsole(id, hostname);
+async function submitRemoteRequest(id, hostname) {
+  const reason = (document.getElementById('remoteReason').value || '').trim();
+  if (!reason) { toast('Informe o motivo do suporte.', 'warn'); return; }
+  const btn = document.getElementById('btnSendRemote');
+  btn.disabled = true;
+  try {
+    const d = await api(`/api/machines/${id}/remote/request`, { method: 'POST', body: JSON.stringify({ reason }) });
+    watchRemoteSession(d.session_id, hostname);
+  } catch (err) {
+    toast(err.message, 'err');
+    btn.disabled = false;
+  }
+}
+
+function watchRemoteSession(sid, hostname) {
+  openModal(`
+    <h3>Aguardando autorização — ${esc(hostname)}</h3>
+    <div style="display:flex;align-items:center;gap:12px;margin:18px 0">
+      <span class="spinner"></span>
+      <span>Solicitação #${sid} enviada. Aguardando o colaborador clicar em <strong>Autorizar</strong> na estação (até 90s)...</span>
+    </div>
+    <div class="modal-footer">
+      <button class="ghost" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+
+  clearInterval(remoteWatchTimer);
+  remoteWatchTimer = setInterval(async () => {
+    try {
+      const s = await api('/api/remote/' + sid);
+      if (s.status === 'pending' || s.status === 'notified') return;
+      clearInterval(remoteWatchTimer);
+      remoteWatchTimer = null;
+
+      if (s.status === 'approved') {
+        toast('Acesso remoto autorizado em ' + hostname + '!', 'ok');
+        openModal(`
+          <h3 style="color:var(--ok)">✔ Acesso Autorizado — ${esc(hostname)}</h3>
+          <p class="sub" style="font-size:13px">
+            Autorizado por <strong>${esc(s.station_user || 'colaborador')}</strong> em ${fmtDate(s.responded_at)}.
+            Use o cliente RustDesk apontando para o servidor interno <strong>172.16.152.2</strong>:
+          </p>
+          <label>ID RustDesk da Estação</label>
+          <div class="secret-row"><code>${esc(s.rustdesk_id || '(aguardando ID)')}</code><button class="sm" onclick="copyText('${esc(s.rustdesk_id)}','ID RustDesk')">Copiar</button></div>
+          <label>Senha Temporária Única (desta sessão)</label>
+          <div class="secret-row"><code>${esc(s.otp)}</code><button class="sm" onclick="copyText('${esc(s.otp)}','Senha temporária')">Copiar</button></div>
+          <div class="modal-footer" style="justify-content:space-between">
+            <button class="danger" onclick="endRemote(${sid},'${esc(hostname)}')">Encerrar sessão e revogar senha</button>
+            <div style="display:flex;gap:8px">
+              ${s.rustdesk_id ? `<a href="rustdesk://${esc(s.rustdesk_id)}" style="text-decoration:none"><button class="ok" type="button">Abrir no RustDesk</button></a>` : ''}
+              <button class="ghost" onclick="closeModal()">Fechar</button>
+            </div>
+          </div>
+        `);
+      } else {
+        const msg = s.status === 'denied' ? 'O colaborador recusou a solicitação de acesso remoto.' : 'Tempo esgotado sem resposta na estação.';
+        toast(msg, 'warn');
+        openModal(`
+          <h3 style="color:var(--err)">✖ Acesso não autorizado — ${esc(hostname)}</h3>
+          <p style="color:var(--muted)">${esc(msg)}</p>
+          <div class="modal-footer"><button class="ghost" onclick="closeModal()">Fechar</button></div>
+        `);
+      }
+    } catch {}
+  }, 2000);
+}
+
+async function endRemote(sid, hostname) {
+  try {
+    await api('/api/remote/' + sid + '/end', { method: 'POST' });
+    toast('Sessão #' + sid + ' encerrada e senha temporária revogada em ' + hostname + '.', 'ok');
+    closeModal();
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+/* --- Cofre de Senhas --- */
+async function reveal(id) {
+  try {
+    const d = await api('/api/machines/' + id + '/reveal', { method: 'POST' });
+    openModal(`
+      <h3>Cofre de Credenciais — ${esc(d.hostname)}</h3>
+      <p class="sub" style="font-size:12px">Descriptografado sob demanda (AES-256-GCM). Esta visualização foi registrada na auditoria.</p>
+      <label>Usuário admin local (sudo)</label>
+      <div class="secret-row"><code>${esc(d.usuario)}</code><button class="sm" onclick="copyText('${esc(d.usuario)}','Usuário')">Copiar</button></div>
+      <label>Senha admin local</label>
+      <div class="secret-row"><code>${esc(d.senha)}</code><button class="sm" onclick="copyText('${esc(d.senha)}','Senha admin')">Copiar</button></div>
+      <label>Senha root</label>
+      <div class="secret-row"><code>${esc(d.root_senha || '(não definida)')}</code><button class="sm" onclick="copyText('${esc(d.root_senha)}','Senha root')">Copiar</button></div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="danger sm" onclick="askCmd(${id},'rotate_password','${esc(d.hostname)}')">Rotacionar senhas agora</button>
+        <button class="ghost" onclick="closeModal()">Fechar</button>
+      </div>
+    `);
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+/* --- Ações administrativas (confirmação via modal, sem confirm/alert) --- */
+function askCmd(id, action, hostname) {
+  const cfg = {
+    reboot: ['Reiniciar estação', `Deseja reiniciar "${hostname}" agora?`, 'Reiniciar', true],
+    shutdown: ['Desligar estação', `Deseja desligar "${hostname}" agora?`, 'Desligar', true],
+    apt_upgrade: ['Atualizar pacotes', `Executar "apt update && full-upgrade" em "${hostname}"?`, 'Atualizar', false],
+    lock_screen: ['Bloquear tela', `Bloquear imediatamente a tela de "${hostname}"?`, 'Bloquear', false],
+    rotate_password: ['Rotacionar senhas', `Gerar e aplicar novas senhas aleatórias (admin e root) em "${hostname}"?`, 'Rotacionar', true],
+  }[action];
+  if (!cfg) return;
+  confirmModal(cfg[0], cfg[1], cfg[2], cfg[3], async () => {
+    try {
+      await api(`/api/machines/${id}/command`, { method: 'POST', body: JSON.stringify({ action }) });
+      toast(`Ação "${cfg[0]}" enviada para ${hostname} (executa em até 5s).`, 'ok');
+    } catch (err) { toast(err.message, 'err'); }
+  });
+}
+
+async function openHistory(id, hostname) {
+  try {
+    const d = await api(`/api/machines/${id}/commands`);
+    const hist = (d.commands || []).map(c => `
+      <div style="margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px">
+        <div class="sub">#${c.id} <strong style="color:var(--text)">${esc(c.action)}</strong> — <strong>${esc(c.status)}</strong> por ${esc(c.requested_by)} em ${fmtDate(c.created_at)}</div>
+        ${c.output ? '<pre>'+esc(c.output)+'</pre>' : ''}
+      </div>
+    `).join('') || '<p class="sub">Nenhuma ação executada nesta estação ainda.</p>';
+    openModal(`
+      <h3>Histórico de Ações — ${esc(hostname)}</h3>
+      <div style="max-height:420px;overflow-y:auto;margin-top:12px">${hist}</div>
+      <div class="modal-footer">
+        <button class="danger sm" onclick="askCmd(${id},'shutdown','${esc(hostname)}')">Desligar estação</button>
+        <button class="ghost sm" onclick="openHistory(${id},'${esc(hostname)}')">Recarregar</button>
+        <button class="ghost sm" onclick="closeModal()">Fechar</button>
+      </div>
+    `);
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function loadRemoteSessions() {
+  try {
+    const d = await api('/api/remote');
+    const mapBadge = { approved: 'on', ended: 'vpn', denied: 'off', timeout: 'warn', pending: 'warn', notified: 'warn' };
+    document.getElementById('remoteBody').innerHTML = (d.sessions || []).map(s => `
+      <tr>
+        <td>#${s.id}</td>
+        <td><strong>${esc(s.hostname)}</strong><div class="sub">${esc(s.rustdesk_id || '')}</div></td>
+        <td>${esc(s.operator)}<div class="sub">${esc(s.operator_ip)}</div></td>
+        <td>${esc(s.station_user || '-')}</td>
+        <td>${esc(s.reason)}</td>
+        <td><span class="badge ${mapBadge[s.status] || 'warn'}">${esc(s.status.toUpperCase())}</span></td>
+        <td class="sub">${fmtDate(s.requested_at)}</td>
+        <td class="sub">${fmtDate(s.responded_at)}${s.ended_at ? '<br>Fim: '+fmtDate(s.ended_at):''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" class="sub" style="padding:20px;text-align:center">Nenhuma sessão remota registrada ainda.</td></tr>';
+  } catch {}
 }
 
 async function loadAudit() {
   try {
     const d = await api('/api/audit');
-    document.getElementById('auditBody').innerHTML = (d.audit || []).map(a => `
-      <tr>
-        <td style="font-size:12px;color:var(--muted)">${fmtDate(a.created_at)}</td>
-        <td>${esc(a.actor)}</td>
-        <td><strong>${esc(a.action)}</strong></td>
-        <td>${esc(a.target_hostname || '-')}</td>
-        <td>${esc(a.ip || '-')}</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(a.details || '-')}</td>
-      </tr>
-    `).join('');
+    auditRows = d.audit || [];
+    renderAudit();
   } catch {}
 }
 
-api('/api/auth/me').then(d => showApp(d.usuario, d.meshcentral_url)).catch(() => showLogin());
+function renderAudit() {
+  const q = (document.getElementById('auditSearch').value || '').toLowerCase();
+  const rows = auditRows.filter(a => [a.actor, a.action, a.target_hostname, a.ip, a.details].join(' ').toLowerCase().includes(q));
+  document.getElementById('auditBody').innerHTML = rows.map(a => `
+    <tr>
+      <td class="sub">${fmtDate(a.created_at)}</td>
+      <td><strong>${esc(a.actor)}</strong></td>
+      <td><span class="badge vpn">${esc(a.action)}</span></td>
+      <td>${esc(a.target_hostname || '-')}</td>
+      <td class="sub">${esc(a.ip || '-')}</td>
+      <td class="sub">${esc(a.details || '-')}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="sub" style="padding:20px;text-align:center">Sem registros.</td></tr>';
+}
+
+api('/api/auth/me').then(d => showApp(d.usuario)).catch(() => showLogin());
 </script>
 </body>
 </html>

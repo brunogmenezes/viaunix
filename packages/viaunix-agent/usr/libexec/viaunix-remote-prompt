@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""ViaUnix - Janela GTK3 exibida ao colaborador para autorizar ou recusar acesso remoto."""
+
+import sys
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+
+CSS = b"""
+window.viaunix-prompt {
+    background-color: #0c1b33;
+    border: 2px solid #ff9f1a;
+    border-radius: 12px;
+}
+label { color: #eef4ff; }
+label.title { font-size: 17px; font-weight: bold; color: #ff9f1a; }
+label.box-info {
+    background-color: #06101f;
+    border: 1px solid #1d3b6b;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+}
+button.allow {
+    background-image: none;
+    background-color: #2ecc71;
+    color: #06101f;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+}
+button.deny {
+    background-image: none;
+    background-color: #e74c3c;
+    color: #ffffff;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+}
+"""
+
+
+class RemotePrompt(Gtk.Window):
+    def __init__(self, operator: str, reason: str) -> None:
+        super().__init__(title="Solicitação de Acesso Remoto — ViaUnix")
+        self.approved = False
+        self.remaining = 60
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        self.get_style_context().add_class("viaunix-prompt")
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_keep_above(True)
+        self.set_default_size(460, 230)
+        self.set_resizable(False)
+        self.set_border_width(20)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.add(root)
+
+        title = Gtk.Label(label="Solicitação de Acesso Remoto — Suporte TI")
+        title.get_style_context().add_class("title")
+        title.set_xalign(0.0)
+        root.pack_start(title, False, False, 0)
+
+        info = Gtk.Label()
+        info.get_style_context().add_class("box-info")
+        info.set_xalign(0.0)
+        info.set_line_wrap(True)
+        info.set_markup(
+            f"<b>Operador de TI:</b> {GLib.markup_escape_text(operator)}\n"
+            f"<b>Motivo:</b> {GLib.markup_escape_text(reason)}"
+        )
+        root.pack_start(info, True, True, 0)
+
+        self.timer_lbl = Gtk.Label(label="Esta solicitação expira automaticamente em 60s.")
+        self.timer_lbl.set_xalign(0.0)
+        root.pack_start(self.timer_lbl, False, False, 0)
+
+        btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        root.pack_end(btns, False, False, 0)
+
+        btn_deny = Gtk.Button(label="✖ Recusar")
+        btn_deny.get_style_context().add_class("deny")
+        btn_deny.connect("clicked", self.on_deny)
+        btns.pack_start(btn_deny, True, True, 0)
+
+        btn_allow = Gtk.Button(label="✔ Autorizar Acesso")
+        btn_allow.get_style_context().add_class("allow")
+        btn_allow.connect("clicked", self.on_allow)
+        btns.pack_end(btn_allow, True, True, 0)
+
+        self.connect("destroy", Gtk.main_quit)
+        GLib.timeout_add_seconds(1, self.on_tick)
+
+    def on_tick(self) -> bool:
+        self.remaining -= 1
+        if self.remaining <= 0:
+            self.approved = False
+            self.close()
+            return False
+        self.timer_lbl.set_text(f"Esta solicitação expira automaticamente em {self.remaining}s.")
+        return True
+
+    def on_deny(self, _w) -> None:
+        self.approved = False
+        self.close()
+
+    def on_allow(self, _w) -> None:
+        self.approved = True
+        self.close()
+
+
+def main() -> int:
+    operator = sys.argv[1] if len(sys.argv) > 1 else "Suporte TI"
+    reason = sys.argv[2] if len(sys.argv) > 2 else "Atendimento de suporte"
+    win = RemotePrompt(operator, reason)
+    win.show_all()
+    Gtk.main()
+    return 0 if win.approved else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

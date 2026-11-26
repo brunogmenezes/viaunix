@@ -43,4 +43,5 @@ done
 rm -f config/packages.chroot/viaunix-*.deb
 cp "$OUT"/*.deb config/packages.chroot/
 sh scripts/baixar-chrome.sh
+sh scripts/baixar-rustdesk.sh
 ls -lh "$OUT"

@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
-"""ViaUnix Agent - agente leve para gestao remota pelo ViaUnix Manager.
-
-Conexao 100% de saida (nao abre nenhuma porta no firewall nftables):
-- Registra-se automaticamente no servidor usando /etc/viaunix/provision.conf e salva
-  token unico por maquina em /var/lib/viaunix-agent/token (0600 root:root).
-- Envia heartbeat a cada 30s com telemetria (IP, usuario logado, CPU, RAM, disco, uptime).
-- Executa comandos da fila: reboot, shutdown, apt_upgrade, lock_screen, rotate_password, shell.
-"""
+"""ViaUnix Agent 1.1.0 - telemetria rapida (5s), acoes remotas e autorizacao RustDesk."""
 
 import glob
 import json
 import os
+import pwd
+import re
 import secrets
 import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -23,15 +19,16 @@ import urllib.request
 CONF_PATH = "/etc/viaunix/provision.conf"
 STATE_DIR = "/var/lib/viaunix-agent"
 TOKEN_PATH = os.path.join(STATE_DIR, "token")
-POLL_INTERVAL = 30
+POLL_INTERVAL = 5
 ALPHABET_PASS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%"
+ALPHABET_OTP = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 
 
 def load_config() -> dict:
     cfg = {
         "PROVISION_URL": "http://172.16.152.2:8088/api/provision",
         "PROVISION_TOKEN": "viaunix-provision-alterar-em-producao",
-        "TIMEOUT": "15",
+        "TIMEOUT": "10",
     }
     if os.path.isfile(CONF_PATH):
         with open(CONF_PATH, "r", encoding="utf-8") as f:
@@ -41,13 +38,11 @@ def load_config() -> dict:
                     continue
                 k, v = line.split("=", 1)
                 cfg[k.strip()] = v.strip().strip('"').strip("'")
-    # Base URL = parte antes de /api/provision
-    url = cfg["PROVISION_URL"]
-    cfg["BASE_URL"] = url.split("/api/provision")[0].rstrip("/")
+    cfg["BASE_URL"] = cfg["PROVISION_URL"].split("/api/provision")[0].rstrip("/")
     return cfg
 
 
-def post_json(url: str, payload: dict, headers: dict, timeout: float = 15.0) -> tuple[int, dict]:
+def post_json(url: str, payload: dict, headers: dict, timeout: float = 10.0) -> tuple[int, dict]:
     data = json.dumps(payload).encode("utf-8")
     hdrs = {"Content-Type": "application/json", "Accept": "application/json"}
     hdrs.update(headers)
@@ -97,9 +92,28 @@ def get_local_ip() -> str:
         return ""
 
 
+def get_vpn_ip() -> str:
+    try:
+        out = subprocess.check_output(["/usr/sbin/ip", "-4", "-o", "addr", "show", "dev", "tun0"], stderr=subprocess.DEVNULL, text=True, timeout=2)
+        m = re.search(r"inet\s+([0-9.]+)", out)
+        return m.group(1) if m else ""
+    except Exception:
+        return ""
+
+
+def get_rustdesk_id() -> str:
+    if not shutil.which("rustdesk"):
+        return ""
+    try:
+        out = subprocess.check_output(["rustdesk", "--get-id"], stderr=subprocess.DEVNULL, text=True, timeout=4).strip()
+        return out.splitlines()[-1].strip() if out else ""
+    except Exception:
+        return ""
+
+
 def get_logged_user() -> str:
     try:
-        out = subprocess.check_output(["/usr/bin/who"], text=True, timeout=5)
+        out = subprocess.check_output(["/usr/bin/who"], text=True, timeout=3)
         users = []
         for line in out.splitlines():
             parts = line.split()
@@ -125,11 +139,10 @@ def get_cpu_percent() -> float:
     def read_cpu():
         with open("/proc/stat", "r", encoding="utf-8") as f:
             parts = [int(x) for x in f.readline().split()[1:8]]
-        idle = parts[3] + parts[4]
-        return idle, sum(parts)
+        return parts[3] + parts[4], sum(parts)
     try:
         i1, t1 = read_cpu()
-        time.sleep(0.3)
+        time.sleep(0.2)
         i2, t2 = read_cpu()
         dt = t2 - t1
         return round(100.0 * (1.0 - (i2 - i1) / dt), 1) if dt > 0 else 0.0
@@ -172,10 +185,9 @@ def ensure_token(cfg: dict) -> str:
         if tok:
             return tok
 
-    hostname = socket.gethostname()
     code, resp = post_json(
         cfg["BASE_URL"] + "/api/agent/register",
-        {"hostname": hostname, "mac": get_primary_mac(), "serial": get_serial()},
+        {"hostname": socket.gethostname(), "mac": get_primary_mac(), "serial": get_serial()},
         {"X-ViaUnix-Token": cfg["PROVISION_TOKEN"]},
     )
     if code == 200 and resp.get("agent_token"):
@@ -186,6 +198,86 @@ def ensure_token(cfg: dict) -> str:
             f.write(resp["agent_token"] + "\n")
         return resp["agent_token"]
     return ""
+
+
+def find_graphical_session() -> tuple[str, int, str, str]:
+    """Retorna (username, uid, DISPLAY, XAUTHORITY) da sessao grafica ativa (ou vazio)."""
+    try:
+        out = subprocess.check_output(["/bin/loginctl", "list-sessions", "--no-legend"], text=True, timeout=4)
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            sid, uid_s, user = parts[0], parts[1], parts[2]
+            if user in ("Debian-gdm", "gdm", "root"):
+                continue
+            props = subprocess.check_output(
+                ["/bin/loginctl", "show-session", sid, "-p", "Type", "-p", "State", "-p", "Display"],
+                text=True, timeout=3,
+            )
+            kv = dict(l.split("=", 1) for l in props.splitlines() if "=" in l)
+            if kv.get("Type") in ("x11", "wayland") and kv.get("State") == "active":
+                uid = int(uid_s)
+                disp = kv.get("Display") or ":0"
+                # Tenta localizar Xauthority do usuario
+                xauth = ""
+                for cand in (f"/run/user/{uid}/gdm/Xauthority", f"{pwd.getpwuid(uid).pw_dir}/.Xauthority"):
+                    if os.path.isfile(cand):
+                        xauth = cand
+                        break
+                return user, uid, disp, xauth
+    except Exception:
+        pass
+    return "", -1, "", ""
+
+
+def handle_remote_request(cfg: dict, token: str, rreq: dict) -> None:
+    sid = rreq["session_id"]
+    operator = rreq.get("operator", "Suporte TI")
+    reason = rreq.get("reason", "Atendimento de suporte")
+    respond_url = f"{cfg['BASE_URL']}/api/agent/remote/{sid}/respond"
+    hdr = {"X-Agent-Token": token}
+
+    user, uid, disp, xauth = find_graphical_session()
+    if not user:
+        post_json(respond_url, {"approved": False, "station_user": "", "detail": "nenhum usuario logado na tela"}, hdr)
+        return
+
+    env = {
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "DISPLAY": disp,
+        "XDG_RUNTIME_DIR": f"/run/user/{uid}",
+        "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{uid}/bus",
+    }
+    if xauth:
+        env["XAUTHORITY"] = xauth
+
+    try:
+        res = subprocess.run(
+            ["/usr/sbin/runuser", "-u", user, "--", "/usr/libexec/viaunix-remote-prompt", operator, reason],
+            env=env,
+            timeout=70,
+        )
+        approved = (res.returncode == 0)
+    except Exception as exc:
+        post_json(respond_url, {"approved": False, "station_user": user, "detail": f"erro prompt: {exc}"}, hdr)
+        return
+
+    if not approved:
+        post_json(respond_url, {"approved": False, "station_user": user, "detail": "recusado ou expirado"}, hdr)
+        return
+
+    # Usuario autorizou: gera senha temporaria unica (OTP) e aplica no RustDesk
+    otp = "".join(secrets.choice(ALPHABET_OTP) for _ in range(12))
+    if shutil.which("rustdesk"):
+        subprocess.run(["/bin/systemctl", "start", "rustdesk.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["rustdesk", "--password", otp], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    rd_id = get_rustdesk_id()
+    post_json(
+        respond_url,
+        {"approved": True, "station_user": user, "rustdesk_id": rd_id, "otp": otp, "detail": "autorizado pelo usuario"},
+        hdr,
+    )
 
 
 def run_command(cfg: dict, token: str, cmd: dict) -> None:
@@ -251,6 +343,8 @@ def run_command(cfg: dict, token: str, cmd: dict) -> None:
 
 
 def main() -> None:
+    rd_cache = ""
+    tick = 0
     while True:
         cfg = load_config()
         token = ensure_token(cfg)
@@ -258,9 +352,15 @@ def main() -> None:
             time.sleep(POLL_INTERVAL)
             continue
 
+        if tick % 12 == 0 or not rd_cache:
+            rd_cache = get_rustdesk_id()
+        tick += 1
+
         hb = {
             "hostname": socket.gethostname(),
             "ip_local": get_local_ip(),
+            "vpn_ip": get_vpn_ip(),
+            "rustdesk_id": rd_cache,
             "logged_user": get_logged_user(),
             "os_version": get_os_version(),
             "cpu_percent": get_cpu_percent(),
@@ -270,13 +370,20 @@ def main() -> None:
         }
         code, resp = post_json(cfg["BASE_URL"] + "/api/agent/heartbeat", hb, {"X-Agent-Token": token})
         if code == 403 and os.path.isfile(TOKEN_PATH):
-            # Token revogado/invalido: força novo registro
             os.remove(TOKEN_PATH)
-        elif code == 200 and resp.get("command"):
-            try:
-                run_command(cfg, token, resp["command"])
-            except Exception as exc:
-                print(f"[viaunix-agent] erro executando comando: {exc}", file=sys.stderr, flush=True)
+        elif code == 200:
+            if resp.get("remote_request"):
+                threading.Thread(
+                    target=handle_remote_request,
+                    args=(cfg, token, resp["remote_request"]),
+                    daemon=True,
+                ).start()
+            if resp.get("command"):
+                threading.Thread(
+                    target=run_command,
+                    args=(cfg, token, resp["command"]),
+                    daemon=True,
+                ).start()
 
         time.sleep(POLL_INTERVAL)
 

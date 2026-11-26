@@ -1,0 +1,28 @@
+#!/bin/sh
+# Aplica servidor e chave publica do RustDesk em /root/.config/rustdesk/RustDesk2.toml e /etc/skel
+set -e
+CONF=/etc/viaunix/rustdesk.conf
+[ -f "$CONF" ] || exit 0
+. "$CONF"
+[ -n "${RUSTDESK_SERVER:-}" ] || exit 0
+
+write_toml() {
+    dir="$1"
+    mkdir -p "$dir"
+    cat > "$dir/RustDesk2.toml" <<EOF
+rendezvous_server = '${RUSTDESK_SERVER}:21116'
+nat_type = 1
+serial = 0
+
+[options]
+custom-rendezvous-server = '${RUSTDESK_SERVER}'
+relay-server = '${RUSTDESK_SERVER}'
+key = '${RUSTDESK_KEY}'
+verification-method = 'use-both-passwords'
+approve-mode = 'password'
+EOF
+}
+
+write_toml /root/.config/rustdesk
+write_toml /etc/skel/.config/rustdesk
+chmod 644 /etc/skel/.config/rustdesk/RustDesk2.toml

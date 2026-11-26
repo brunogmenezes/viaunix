@@ -1,11 +1,11 @@
 Package: viaunix-agent
-Version: 1.0.0
+Version: 1.1.0
 Architecture: all
 Maintainer: brunogmenezes <brunogmenezes@hotmail.com>
 Section: admin
 Priority: optional
-Depends: python3, systemd, viaunix-provision
-Description: Agente de gerenciamento remoto do ViaUnix
- Comunica-se com o ViaUnix Manager por conexao de saida (sem abrir portas
- no firewall), envia telemetria e executa acoes remotas (reiniciar, desligar,
- atualizar APT, bloquear tela, rotacionar senhas e comandos administrativos).
+Depends: python3, python3-gi, gir1.2-gtk-3.0, systemd, viaunix-provision
+Description: Agente de gerenciamento remoto e autorizacao de suporte do ViaUnix
+ Comunica-se com o ViaUnix Manager por conexao de saida a cada 5s (sem abrir
+ portas no firewall), envia telemetria (incl. VPN e RustDesk ID), exibe tela
+ de autorizacao de acesso remoto ao colaborador e executa acoes administrativas.

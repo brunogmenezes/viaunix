@@ -5,6 +5,14 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.1.0] - 2026-11-26
+
+### Alterado
+- **ViaUnix Manager (`manager/`):** visual totalmente renovado (sem `alert`/`confirm` nativos — toasts + modais customizados, barras de CPU/RAM/disco, filtros Online/Offline/VPN, cabeçalhos de segurança HTTP, rate-limit no login, aba **Sessões Remotas** e exportação **CSV** da auditoria).
+- **Acesso remoto (`viaunix-remote` 2.0.0 + `viaunix-agent` 1.1.0):** substituído MeshCentral por **RustDesk self-hosted** no `172.16.152.2` (`scripts/rustdesk-server-setup.sh`, `scripts/baixar-rustdesk.sh`, `scripts/rustdesk-configurar.sh`) com fluxo de **autorização explícita na tela do colaborador** (`viaunix-remote-prompt`), senha temporária única criptografada (AES-256-GCM), revogação ao encerrar e log completo em `remote_sessions` + `audit_log`.
+- **`viaunix-agent` 1.1.0:** heartbeat reduzido para **5s** (resposta rápida) com telemetria de IP da VPN (`tun0`) e ID RustDesk.
+- Release `v1.1.0` (`VERSION`, `viaunix-release` 1.1.0, `os-release`, `issue`, `branding.desc`).
+
 ## [1.0.5] - 2026-11-26
 
 ### Adicionado

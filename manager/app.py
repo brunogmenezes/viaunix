@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""ViaUnix Manager - Backend + API de provisionamento, agente e painel web.
+"""ViaUnix Manager - Backend + API de provisionamento, agente, acesso remoto auditado e painel web.
 
-- Armazena maquinas, comandos e auditoria no PostgreSQL.
-- Criptografa senhas (adm-* e root) em AES-256-GCM usando chave mestra fora do banco.
+- Armazena maquinas, comandos, sessoes de acesso remoto e auditoria no PostgreSQL.
+- Criptografa senhas (adm-*, root e senhas temporarias RustDesk) em AES-256-GCM
+  usando chave mestra fora do banco (/etc/viaunix/master.key).
 - Login do painel: API Jupiter (restrito a ADMIN_USERS) + conta admin local de emergencia.
-- Mantem compatibilidade total com POST /api/provision do viaunix-provision.
+- Fluxo de acesso remoto (estilo RustDesk): operador solicita com motivo -> usuario autoriza
+  ou recusa na tela da estacao -> senha temporaria unica -> log completo de tudo.
 """
 
 import base64
+import csv
 import datetime
 import hashlib
 import hmac
+import io
 import json
 import os
 import secrets
@@ -24,13 +28,14 @@ import psycopg2
 import psycopg2.extras
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 CONF_PATH = os.environ.get("VIAUNIX_MANAGER_CONF", "/etc/viaunix/manager.conf")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 COOKIE_NAME = "viaunix_session"
 SESSION_TTL = 8 * 3600  # 8 horas
+LOGIN_ATTEMPTS: dict[str, list[float]] = {}
 
 
 def load_config() -> dict:
@@ -43,7 +48,7 @@ def load_config() -> dict:
         "ADMIN_USERS": "Brunog",
         "LOCAL_ADMIN_USER": "admin",
         "LOCAL_ADMIN_HASH": "",
-        "MESHCENTRAL_URL": "http://172.16.152.2:8090",
+        "RUSTDESK_SERVER": "172.16.152.2",
     }
     if os.path.isfile(CONF_PATH):
         with open(CONF_PATH, "r", encoding="utf-8") as f:
@@ -177,6 +182,8 @@ def init_db() -> None:
                     serial TEXT NOT NULL DEFAULT '',
                     ip_origem TEXT NOT NULL DEFAULT '',
                     ip_local TEXT NOT NULL DEFAULT '',
+                    vpn_ip TEXT NOT NULL DEFAULT '',
+                    rustdesk_id TEXT NOT NULL DEFAULT '',
                     logged_user TEXT NOT NULL DEFAULT '',
                     os_version TEXT NOT NULL DEFAULT '',
                     cpu_percent REAL,
@@ -187,6 +194,9 @@ def init_db() -> None:
                     instalado_em TEXT NOT NULL DEFAULT '',
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
+                ALTER TABLE machines ADD COLUMN IF NOT EXISTS vpn_ip TEXT NOT NULL DEFAULT '';
+                ALTER TABLE machines ADD COLUMN IF NOT EXISTS rustdesk_id TEXT NOT NULL DEFAULT '';
+
                 CREATE TABLE IF NOT EXISTS commands (
                     id SERIAL PRIMARY KEY,
                     machine_id INTEGER NOT NULL REFERENCES machines(id) ON DELETE CASCADE,
@@ -198,6 +208,23 @@ def init_db() -> None:
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     finished_at TIMESTAMPTZ
                 );
+
+                CREATE TABLE IF NOT EXISTS remote_sessions (
+                    id SERIAL PRIMARY KEY,
+                    machine_id INTEGER NOT NULL REFERENCES machines(id) ON DELETE CASCADE,
+                    hostname TEXT NOT NULL,
+                    operator TEXT NOT NULL,
+                    operator_ip TEXT NOT NULL DEFAULT '',
+                    station_user TEXT NOT NULL DEFAULT '',
+                    reason TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    rustdesk_id TEXT NOT NULL DEFAULT '',
+                    otp_enc TEXT NOT NULL DEFAULT '',
+                    requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    responded_at TIMESTAMPTZ,
+                    ended_at TIMESTAMPTZ
+                );
+
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id SERIAL PRIMARY KEY,
                     actor TEXT NOT NULL,
@@ -222,6 +249,15 @@ def client_ip(request: Request) -> str:
     return fwd or (request.client.host if request.client else "")
 
 
+def check_login_rate_limit(ip: str) -> None:
+    now = time.time()
+    recent = [t for t in LOGIN_ATTEMPTS.get(ip, []) if now - t < 60]
+    if len(recent) >= 10:
+        raise HTTPException(status_code=429, detail="Muitas tentativas de login. Aguarde 1 minuto.")
+    recent.append(now)
+    LOGIN_ATTEMPTS[ip] = recent
+
+
 def require_admin(request: Request) -> str:
     user = parse_session_cookie(request.cookies.get(COOKIE_NAME))
     if not user:
@@ -230,6 +266,15 @@ def require_admin(request: Request) -> str:
 
 
 app = FastAPI(title="ViaUnix Manager", docs_url=None, redoc_url=None)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @app.on_event("startup")
@@ -262,6 +307,8 @@ class AgentRegisterBody(BaseModel):
 class HeartbeatBody(BaseModel):
     hostname: str = ""
     ip_local: str = ""
+    vpn_ip: str = ""
+    rustdesk_id: str = ""
     logged_user: str = ""
     os_version: str = ""
     cpu_percent: Optional[float] = None
@@ -282,6 +329,18 @@ class CommandResultBody(BaseModel):
     new_root_senha: Optional[str] = None
 
 
+class RemoteRequestBody(BaseModel):
+    reason: str = ""
+
+
+class RemoteRespondBody(BaseModel):
+    approved: bool
+    station_user: str = ""
+    rustdesk_id: str = ""
+    otp: str = ""
+    detail: str = ""
+
+
 ALLOWED_ACTIONS = {"reboot", "shutdown", "apt_upgrade", "lock_screen", "rotate_password", "shell"}
 
 
@@ -299,6 +358,8 @@ def index():
 # --- Autenticacao do Painel Web ---
 @app.post("/api/auth/login")
 def login(body: LoginBody, request: Request, response: Response):
+    ip = client_ip(request)
+    check_login_rate_limit(ip)
     user = body.usuario.strip()
     pw = body.senha
     if not user or not pw:
@@ -306,13 +367,10 @@ def login(body: LoginBody, request: Request, response: Response):
 
     ok = False
     method = ""
-
-    # 1. Conta admin local de emergencia
     if user == CFG["LOCAL_ADMIN_USER"] and verify_scrypt_hash(pw, CFG["LOCAL_ADMIN_HASH"]):
         ok = True
         method = "local"
     else:
-        # 2. API Jupiter (somente usuarios autorizados em ADMIN_USERS)
         allowed = {u.strip().lower() for u in CFG.get("ADMIN_USERS", "").split(",") if u.strip()}
         if user.lower() in allowed and verify_jupiter_api(user, pw):
             ok = True
@@ -321,9 +379,9 @@ def login(body: LoginBody, request: Request, response: Response):
     with db_conn() as conn:
         with conn.cursor() as cur:
             if not ok:
-                add_audit(cur, user, "login_failed", "", client_ip(request), "credenciais invalidas ou sem permissao")
+                add_audit(cur, user, "login_failed", "", ip, "credenciais invalidas ou sem permissao")
                 raise HTTPException(status_code=401, detail="Usuario ou senha invalidos (ou sem permissao de TI)")
-            add_audit(cur, user, "login", "", client_ip(request), f"via {method}")
+            add_audit(cur, user, "login", "", ip, f"via {method}")
 
     token = make_session_cookie(user)
     response.set_cookie(
@@ -345,10 +403,10 @@ def logout(response: Response):
 
 @app.get("/api/auth/me")
 def me(admin: str = Depends(require_admin)):
-    return {"usuario": admin, "meshcentral_url": CFG.get("MESHCENTRAL_URL", "")}
+    return {"usuario": admin, "rustdesk_server": CFG.get("RUSTDESK_SERVER", "172.16.152.2")}
 
 
-# --- Provisionamento (compativel com viaunix-provision) ---
+# --- Provisionamento ---
 @app.post("/api/provision", status_code=201)
 def provision(body: ProvisionBody, request: Request, x_viaunix_token: str = Header(default="")):
     if not hmac.compare_digest(x_viaunix_token, CFG["PROVISION_TOKEN"]):
@@ -434,7 +492,9 @@ def agent_heartbeat(body: HeartbeatBody, request: Request, x_agent_token: str = 
             cur.execute(
                 """
                 UPDATE machines
-                SET ip_origem=%s, ip_local=%s, logged_user=%s, os_version=%s,
+                SET ip_origem=%s, ip_local=%s, vpn_ip=%s,
+                    rustdesk_id=COALESCE(NULLIF(%s,''), rustdesk_id),
+                    logged_user=%s, os_version=%s,
                     cpu_percent=%s, mem_percent=%s, disk_percent=%s, uptime_sec=%s,
                     last_seen=NOW()
                 WHERE id=%s
@@ -442,6 +502,8 @@ def agent_heartbeat(body: HeartbeatBody, request: Request, x_agent_token: str = 
                 (
                     client_ip(request),
                     body.ip_local[:64],
+                    body.vpn_ip[:64],
+                    body.rustdesk_id[:64],
                     body.logged_user[:64],
                     body.os_version[:128],
                     body.cpu_percent,
@@ -451,6 +513,39 @@ def agent_heartbeat(body: HeartbeatBody, request: Request, x_agent_token: str = 
                     m["id"],
                 ),
             )
+
+            # Expira solicitacoes de acesso remoto sem resposta ha mais de 90s
+            cur.execute(
+                """
+                UPDATE remote_sessions
+                SET status='timeout', responded_at=NOW()
+                WHERE machine_id=%s AND status IN ('pending', 'notified')
+                  AND requested_at < NOW() - INTERVAL '90 seconds'
+                """,
+                (m["id"],),
+            )
+
+            # 1. Prioridade: solicitacao pendente de acesso remoto (pede autorizacao na tela do usuario)
+            cur.execute(
+                """
+                SELECT id, operator, reason FROM remote_sessions
+                WHERE machine_id=%s AND status='pending'
+                ORDER BY id ASC LIMIT 1
+                FOR UPDATE SKIP LOCKED
+                """,
+                (m["id"],),
+            )
+            rreq = cur.fetchone()
+            remote_payload = None
+            if rreq:
+                cur.execute("UPDATE remote_sessions SET status='notified' WHERE id=%s", (rreq["id"],))
+                remote_payload = {
+                    "session_id": rreq["id"],
+                    "operator": rreq["operator"],
+                    "reason": rreq["reason"],
+                }
+
+            # 2. Proximo comando da fila (se houver)
             cur.execute(
                 """
                 SELECT id, action, payload FROM commands
@@ -461,10 +556,54 @@ def agent_heartbeat(body: HeartbeatBody, request: Request, x_agent_token: str = 
                 (m["id"],),
             )
             cmd = cur.fetchone()
+            cmd_payload = None
             if cmd:
                 cur.execute("UPDATE commands SET status='running' WHERE id=%s", (cmd["id"],))
-                return {"ok": True, "command": {"id": cmd["id"], "action": cmd["action"], "payload": cmd["payload"], "usuario": m["usuario"]}}
-    return {"ok": True, "command": None}
+                cmd_payload = {
+                    "id": cmd["id"],
+                    "action": cmd["action"],
+                    "payload": cmd["payload"],
+                    "usuario": m["usuario"],
+                }
+
+    return {"ok": True, "command": cmd_payload, "remote_request": remote_payload}
+
+
+@app.post("/api/agent/remote/{session_id}/respond")
+def agent_remote_respond(session_id: int, body: RemoteRespondBody, request: Request, x_agent_token: str = Header(default="")):
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            m = get_machine_by_agent_token(cur, x_agent_token)
+            cur.execute(
+                "SELECT id, operator, status FROM remote_sessions WHERE id=%s AND machine_id=%s",
+                (session_id, m["id"]),
+            )
+            rs = cur.fetchone()
+            if not rs:
+                raise HTTPException(status_code=404, detail="session_not_found")
+
+            new_status = "approved" if body.approved else "denied"
+            cur.execute(
+                """
+                UPDATE remote_sessions
+                SET status=%s, station_user=%s, rustdesk_id=COALESCE(NULLIF(%s,''), rustdesk_id),
+                    otp_enc=%s, responded_at=NOW()
+                WHERE id=%s
+                """,
+                (
+                    new_status,
+                    body.station_user[:64],
+                    body.rustdesk_id[:64],
+                    encrypt_secret(body.otp) if body.approved and body.otp else "",
+                    session_id,
+                ),
+            )
+            if body.rustdesk_id:
+                cur.execute("UPDATE machines SET rustdesk_id=%s WHERE id=%s", (body.rustdesk_id[:64], m["id"]))
+
+            detail = f"sessao=#{session_id} operador={rs['operator']} usuario_estacao={body.station_user or '-'} {body.detail}".strip()
+            add_audit(cur, body.station_user or "estacao", f"remote_{new_status}", m["hostname"], client_ip(request), detail)
+    return {"ok": True}
 
 
 @app.post("/api/agent/command/{cmd_id}/result")
@@ -499,9 +638,9 @@ def list_machines(admin: str = Depends(require_admin)):
     with db_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
-                SELECT id, hostname, usuario, mac, serial, ip_origem, ip_local,
-                       logged_user, os_version, cpu_percent, mem_percent, disk_percent,
-                       uptime_sec, last_seen, instalado_em, created_at
+                SELECT id, hostname, usuario, mac, serial, ip_origem, ip_local, vpn_ip,
+                       rustdesk_id, logged_user, os_version, cpu_percent, mem_percent,
+                       disk_percent, uptime_sec, last_seen, instalado_em, created_at
                 FROM machines
                 ORDER BY last_seen DESC NULLS LAST, id DESC
             """)
@@ -510,7 +649,7 @@ def list_machines(admin: str = Depends(require_admin)):
     out = []
     for r in rows:
         ls = r["last_seen"]
-        online = bool(ls and (now - ls).total_seconds() <= 90)
+        online = bool(ls and (now - ls).total_seconds() <= 30)
         item = dict(r)
         item["online"] = online
         item["last_seen"] = ls.isoformat() if ls else None
@@ -534,6 +673,109 @@ def reveal_password(machine_id: int, request: Request, admin: str = Depends(requ
         "senha": decrypt_secret(m["senha_enc"]),
         "root_senha": decrypt_secret(m["root_senha_enc"]),
     }
+
+
+@app.post("/api/machines/{machine_id}/remote/request")
+def request_remote_access(machine_id: int, body: RemoteRequestBody, request: Request, admin: str = Depends(require_admin)):
+    reason = body.reason.strip()[:240]
+    if not reason:
+        raise HTTPException(status_code=400, detail="Informe o motivo do suporte remoto.")
+
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, hostname, rustdesk_id, logged_user, last_seen FROM machines WHERE id=%s", (machine_id,))
+            m = cur.fetchone()
+            if not m:
+                raise HTTPException(status_code=404, detail="Maquina nao encontrada")
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            if not m["last_seen"] or (now - m["last_seen"]).total_seconds() > 30:
+                raise HTTPException(status_code=409, detail="A estacao esta offline no momento.")
+
+            cur.execute(
+                """
+                INSERT INTO remote_sessions (machine_id, hostname, operator, operator_ip, station_user, reason, rustdesk_id, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')
+                RETURNING id
+                """,
+                (m["id"], m["hostname"], admin, client_ip(request), m["logged_user"] or "", reason, m["rustdesk_id"] or ""),
+            )
+            sid = cur.fetchone()["id"]
+            add_audit(cur, admin, "remote_request", m["hostname"], client_ip(request), f"sessao=#{sid} motivo={reason}")
+
+    return {"ok": True, "session_id": sid, "hostname": m["hostname"]}
+
+
+@app.get("/api/remote/{session_id}")
+def get_remote_session(session_id: int, admin: str = Depends(require_admin)):
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, machine_id, hostname, operator, station_user, reason, status,
+                       rustdesk_id, otp_enc, requested_at, responded_at, ended_at
+                FROM remote_sessions WHERE id=%s
+                """,
+                (session_id,),
+            )
+            rs = cur.fetchone()
+            if not rs:
+                raise HTTPException(status_code=404, detail="Sessao nao encontrada")
+
+    otp = decrypt_secret(rs["otp_enc"]) if rs["status"] == "approved" and rs["otp_enc"] else ""
+    return {
+        "id": rs["id"],
+        "machine_id": rs["machine_id"],
+        "hostname": rs["hostname"],
+        "operator": rs["operator"],
+        "station_user": rs["station_user"],
+        "reason": rs["reason"],
+        "status": rs["status"],
+        "rustdesk_id": rs["rustdesk_id"],
+        "otp": otp,
+        "requested_at": rs["requested_at"].isoformat() if rs["requested_at"] else None,
+        "responded_at": rs["responded_at"].isoformat() if rs["responded_at"] else None,
+        "ended_at": rs["ended_at"].isoformat() if rs["ended_at"] else None,
+    }
+
+
+@app.post("/api/remote/{session_id}/end")
+def end_remote_session(session_id: int, request: Request, admin: str = Depends(require_admin)):
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, machine_id, hostname, status FROM remote_sessions WHERE id=%s", (session_id,))
+            rs = cur.fetchone()
+            if not rs:
+                raise HTTPException(status_code=404, detail="Sessao nao encontrada")
+
+            cur.execute(
+                "UPDATE remote_sessions SET status='ended', otp_enc='', ended_at=NOW() WHERE id=%s",
+                (session_id,),
+            )
+            # Invalida a senha temporaria na estacao via comando na fila
+            cur.execute(
+                "INSERT INTO commands (machine_id, action, payload, requested_by) VALUES (%s, 'shell', %s, %s)",
+                (rs["machine_id"], "/usr/sbin/viaunix-remote-revoke || true", admin),
+            )
+            add_audit(cur, admin, "remote_ended", rs["hostname"], client_ip(request), f"sessao=#{session_id} encerrada")
+    return {"ok": True}
+
+
+@app.get("/api/remote")
+def list_remote_sessions(admin: str = Depends(require_admin)):
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, hostname, operator, operator_ip, station_user, reason, status,
+                       rustdesk_id, requested_at, responded_at, ended_at
+                FROM remote_sessions
+                ORDER BY id DESC LIMIT 100
+            """)
+            rows = cur.fetchall()
+    for r in rows:
+        for k in ("requested_at", "responded_at", "ended_at"):
+            r[k] = r[k].isoformat() if r[k] else None
+    return {"sessions": rows}
 
 
 @app.post("/api/machines/{machine_id}/command")
@@ -582,8 +824,35 @@ def list_machine_commands(machine_id: int, admin: str = Depends(require_admin)):
 def list_audit(admin: str = Depends(require_admin)):
     with db_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT id, actor, action, target_hostname, ip, details, created_at FROM audit_log ORDER BY id DESC LIMIT 100")
+            cur.execute("SELECT id, actor, action, target_hostname, ip, details, created_at FROM audit_log ORDER BY id DESC LIMIT 200")
             rows = cur.fetchall()
     for r in rows:
         r["created_at"] = r["created_at"].isoformat() if r["created_at"] else None
     return {"audit": rows}
+
+
+@app.get("/api/audit/export.csv")
+def export_audit_csv(admin: str = Depends(require_admin)):
+    with db_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, created_at, actor, action, target_hostname, ip, details FROM audit_log ORDER BY id DESC LIMIT 1000")
+            rows = cur.fetchall()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "data_hora", "ator", "acao", "maquina", "ip", "detalhes"])
+    for r in rows:
+        writer.writerow([
+            r["id"],
+            r["created_at"].isoformat() if r["created_at"] else "",
+            r["actor"],
+            r["action"],
+            r["target_hostname"],
+            r["ip"],
+            r["details"],
+        ])
+    return PlainTextResponse(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=viaunix-auditoria.csv"},
+    )

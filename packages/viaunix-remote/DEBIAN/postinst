@@ -1,9 +1,14 @@
 #!/bin/sh
 set -e
 if [ "$1" = configure ]; then
-    chmod 600 /etc/viaunix/meshcentral.conf 2>/dev/null || true
+    # 1. Remove o antigo meshagent (MeshCentral) se ainda estiver instalado
+    if systemctl is-active --quiet meshagent.service 2>/dev/null || [ -x /usr/local/mesh_services/meshagent/meshagent ]; then
+        systemctl stop meshagent.service >/dev/null 2>&1 || true
+        systemctl disable meshagent.service >/dev/null 2>&1 || true
+        /usr/local/mesh_services/meshagent/meshagent -fulluninstall >/dev/null 2>&1 || true
+    fi
 
-    # Forca X11 no GDM para permitir acesso remoto autonomo (sem prompt do Wayland)
+    # 2. Mantem X11 no GDM para captura de tela limpa pelo RustDesk
     for f in /etc/gdm3/daemon.conf /etc/gdm3/custom.conf; do
         if [ -f "$f" ]; then
             if grep -qE "^[#[:space:]]*WaylandEnable=" "$f"; then
@@ -16,9 +21,11 @@ if [ "$1" = configure ]; then
         fi
     done
 
-    # Instala o agente MeshCentral se MESH_ID estiver configurado (apenas fora do chroot/Live)
+    # 3. Aplica configuracao do servidor RustDesk proprio e ativa servico
+    /usr/sbin/viaunix-rustdesk-apply || true
+    systemctl enable rustdesk.service >/dev/null 2>&1 || true
     if [ -d /run/systemd/system ] && ! grep -qw "boot=live" /proc/cmdline 2>/dev/null; then
-        /usr/sbin/viaunix-mesh-install || true
+        systemctl restart rustdesk.service >/dev/null 2>&1 || true
     fi
 fi
 exit 0
