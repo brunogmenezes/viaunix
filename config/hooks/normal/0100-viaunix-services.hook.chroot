@@ -5,6 +5,9 @@ systemctl enable fail2ban || true
 systemctl enable apparmor || true
 systemctl enable systemd-timesyncd || true
 
+# Garante permissao de execucao nos scripts do instalador (mesmo quando editados no Windows)
+chmod +x /usr/local/bin/viaunix-installer-* /usr/local/sbin/viaunix-live-setup 2>/dev/null || true
+
 # Sessão exclusiva do instalador (ativa só no Live, ver ADR 0004)
 systemctl enable viaunix-live-installer.service || true
 # Reenvio de provisionamento caso a instalação ocorra sem rede

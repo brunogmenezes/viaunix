@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""ViaUnix - Ajuste adaptativo de video, resolucao e DPI no instalador Live.
+
+Executa antes do Openbox, do assistente de rede e do Calamares para garantir
+que todas as janelas e botoes (incluindo "Instalar") fiquem 100% visiveis
+em qualquer placa de video, monitor ou fallback sem driver (800x600 / 640x480).
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ENV_FILE = Path("/tmp/viaunix-display.env")
+LOG_FILE = Path("/tmp/viaunix-display.log")
+BRANDING_DESC = Path("/etc/calamares/branding/viaunix/branding.desc")
+STYLESHEET_QSS = Path("/etc/calamares/branding/viaunix/stylesheet.qss")
+
+# Modos preferenciais caso o monitor esteja preso em resolucao muito baixa,
+# mas o XRandR anuncie modos maiores suportados pelo hardware.
+PREFERRED_MODES = [
+    (1280, 720),
+    (1366, 768),
+    (1280, 800),
+    (1280, 1024),
+    (1440, 900),
+    (1600, 900),
+    (1920, 1080),
+    (1024, 768),
+]
+
+
+def log(msg: str) -> None:
+    try:
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except Exception:
+        pass
+
+
+def run_cmd(cmd: list[str], input_text: str | None = None, timeout: int = 8) -> tuple[int, str, str]:
+    try:
+        res = subprocess.run(
+            cmd,
+            input=input_text,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+        )
+        return res.returncode, res.stdout, res.stderr
+    except Exception as exc:
+        log(f"cmd failed {cmd}: {exc}")
+        return 1, "", str(exc)
+
+
+def parse_xrandr(output: str) -> tuple[list[dict], tuple[int, int] | None]:
+    screen_wh: tuple[int, int] | None = None
+    m_screen = re.search(r"current\s+(\d+)\s*x\s*(\d+)", output)
+    if m_screen:
+        screen_wh = (int(m_screen.group(1)), int(m_screen.group(2)))
+
+    outputs: list[dict] = []
+    cur: dict | None = None
+    for line in output.splitlines():
+        m_out = re.match(r"^(\S+)\s+(connected|disconnected)\b(.*)$", line)
+        if m_out:
+            name, status, rest = m_out.group(1), m_out.group(2), m_out.group(3)
+            if status == "connected":
+                m_geo = re.search(r"(\d+)x(\d+)\+(\d+)\+(\d+)", rest)
+                cur = {
+                    "name": name,
+                    "primary": "primary" in rest.split(),
+                    "active": (int(m_geo.group(1)), int(m_geo.group(2))) if m_geo else None,
+                    "modes": [],
+                    "preferred": None,
+                }
+                outputs.append(cur)
+            else:
+                cur = None
+            continue
+
+        if cur is not None:
+            m_mode = re.match(r"^\s+(\d+)x(\d+)\s+(.*)$", line)
+            if m_mode:
+                w, h, flags = int(m_mode.group(1)), int(m_mode.group(2)), m_mode.group(3)
+                mode = (w, h)
+                if mode not in cur["modes"]:
+                    cur["modes"].append(mode)
+                if "*" in flags and cur["active"] is None:
+                    cur["active"] = mode
+                if "+" in flags and cur["preferred"] is None:
+                    cur["preferred"] = mode
+
+    return outputs, screen_wh
+
+
+def pick_best_mode(primary: dict) -> tuple[int, int] | None:
+    modes: list[tuple[int, int]] = primary["modes"]
+    if not modes:
+        return None
+
+    active = primary["active"]
+    if active and active[0] >= 1024 and active[1] >= 680:
+        return None  # Resolucao atual ja e adequada; nao arriscar troca desnecessaria.
+
+    pref = primary["preferred"]
+    if pref and 1024 <= pref[0] <= 1920 and 680 <= pref[1] <= 1080:
+        if pref != active:
+            return pref
+
+    for candidate in PREFERRED_MODES:
+        if candidate in modes and candidate != active:
+            return candidate
+
+    # Ultimo recurso: maior modo <= 1920x1080 que seja maior que o atual
+    valid = [m for m in modes if m[0] <= 1920 and m[1] <= 1080]
+    if valid:
+        best = max(valid, key=lambda m: (m[0] * m[1], m[1]))
+        if not active or (best[0] * best[1] > active[0] * active[1]):
+            return best
+    return None
+
+
+def configure_xrandr() -> tuple[int, int]:
+    run_cmd(["xrandr", "--auto"])
+    rc, out, _ = run_cmd(["xrandr", "--query"])
+    if rc == 0 and out:
+        outputs, screen_wh = parse_xrandr(out)
+        log(f"xrandr initial screen={screen_wh} outputs={outputs}")
+
+        if outputs:
+            primary = next((o for o in outputs if o["primary"] and o["modes"]), None)
+            if primary is None:
+                primary = next((o for o in outputs if o["modes"]), outputs[0])
+
+            best_mode = pick_best_mode(primary)
+            if best_mode:
+                mode_str = f"{best_mode[0]}x{best_mode[1]}"
+                rc_set, _, err_set = run_cmd(
+                    ["xrandr", "--output", primary["name"], "--mode", mode_str, "--primary"]
+                )
+                log(f"xrandr switch {primary['name']} -> {mode_str}: rc={rc_set} err={err_set.strip()}")
+            else:
+                run_cmd(["xrandr", "--output", primary["name"], "--primary"])
+
+            # Espelha saidas secundarias para que nenhuma janela abra fora da tela principal
+            for other in outputs:
+                if other["name"] != primary["name"]:
+                    rc_mir, _, _ = run_cmd(
+                        ["xrandr", "--output", other["name"], "--same-as", primary["name"]]
+                    )
+                    if rc_mir != 0:
+                        run_cmd(["xrandr", "--output", other["name"], "--pos", "0x0"])
+
+        # Re-consulta resolucao real efetiva apos ajustes
+        rc2, out2, _ = run_cmd(["xrandr", "--current"])
+        if rc2 == 0 and out2:
+            outputs2, screen_wh2 = parse_xrandr(out2)
+            primary2 = next((o for o in outputs2 if o["primary"] and o["active"]), None)
+            if primary2 is None:
+                primary2 = next((o for o in outputs2 if o["active"]), None)
+            if primary2 and primary2["active"]:
+                return primary2["active"]
+            if screen_wh2:
+                return screen_wh2
+
+    # Fallback via xdpyinfo
+    rc_dpy, out_dpy, _ = run_cmd(["xdpyinfo"])
+    if rc_dpy == 0:
+        m = re.search(r"dimensions:\s+(\d+)x(\d+)\s+pixels", out_dpy)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+    return 800, 600
+
+
+def compute_profile(w: int, h: int) -> dict:
+    # Garante limites minimos razoaveis em caso de leitura anomala
+    w = max(w, 640)
+    h = max(h, 480)
+
+    if w <= 720 or h <= 540:
+        dpi = 64
+        gdk_dpi = "0.72"
+        font_pt = 8
+        target_w, target_h = 616, 436
+    elif w <= 900 or h <= 660:
+        dpi = 72
+        gdk_dpi = "0.80"
+        font_pt = 9
+        target_w, target_h = 740, 500
+    elif w <= 1200 or h <= 800:
+        dpi = 80
+        gdk_dpi = "0.88"
+        font_pt = 9
+        target_w, target_h = 780, 520
+    else:
+        dpi = 86
+        gdk_dpi = "0.92"
+        font_pt = 10
+        target_w, target_h = 820, 540
+
+    # Invariante de seguranca: janela do Calamares SEMPRE cabe dentro da tela + barra de titulo
+    cal_w = min(target_w, max(540, w - 24))
+    cal_h = min(target_h, max(380, h - 44))
+
+    return {
+        "w": w,
+        "h": h,
+        "dpi": dpi,
+        "gdk_dpi": gdk_dpi,
+        "font_pt": font_pt,
+        "cal_w": cal_w,
+        "cal_h": cal_h,
+    }
+
+
+def apply_x11_dpi(dpi: int) -> None:
+    run_cmd(["xrandr", "--dpi", str(dpi)])
+    run_cmd(["xrdb", "-merge"], input_text=f"Xft.dpi: {dpi}\n")
+
+
+def is_live_boot() -> bool:
+    try:
+        cmdline = Path("/proc/cmdline").read_text(encoding="utf-8", errors="ignore")
+        return "boot=live" in cmdline
+    except Exception:
+        return False
+
+
+def update_live_calamares(cal_w: int, cal_h: int, font_pt: int) -> None:
+    if not is_live_boot():
+        return
+
+    if BRANDING_DESC.is_file():
+        try:
+            text = BRANDING_DESC.read_text(encoding="utf-8")
+            size_line = f"windowSize: {cal_w}px,{cal_h}px"
+            if re.search(r"^windowSize:.*$", text, flags=re.MULTILINE):
+                text = re.sub(r"^windowSize:.*$", size_line, text, flags=re.MULTILINE)
+            else:
+                text = re.sub(
+                    r"^(windowExpanding:.*\n)",
+                    r"\1" + size_line + "\n",
+                    text,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            run_cmd(["sudo", "-n", "tee", str(BRANDING_DESC)], input_text=text)
+        except Exception as exc:
+            log(f"update branding.desc failed: {exc}")
+
+    if STYLESHEET_QSS.is_file():
+        try:
+            qss = STYLESHEET_QSS.read_text(encoding="utf-8")
+            qss = re.sub(
+                r"(/\* VIAUNIX_BASE_FONT \*/\s*font-size:\s*)\d+pt;",
+                rf"\g<1>{font_pt}pt;",
+                qss,
+            )
+            run_cmd(["sudo", "-n", "tee", str(STYLESHEET_QSS)], input_text=qss)
+        except Exception as exc:
+            log(f"update stylesheet.qss failed: {exc}")
+
+
+def write_env_file(profile: dict) -> None:
+    lines = [
+        f'export VIAUNIX_SCREEN_W={profile["w"]}',
+        f'export VIAUNIX_SCREEN_H={profile["h"]}',
+        f'export VIAUNIX_DPI={profile["dpi"]}',
+        f'export VIAUNIX_CALAMARES_W={profile["cal_w"]}',
+        f'export VIAUNIX_CALAMARES_H={profile["cal_h"]}',
+        "export QT_AUTO_SCREEN_SCALE_FACTOR=0",
+        "export QT_ENABLE_HIGHDPI_SCALING=0",
+        "export QT_SCALE_FACTOR=1",
+        f'export QT_FONT_DPI={profile["dpi"]}',
+        "export GDK_SCALE=1",
+        f'export GDK_DPI_SCALE={profile["gdk_dpi"]}',
+    ]
+    ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    try:
+        LOG_FILE.write_text("=== viaunix-installer-display ===\n", encoding="utf-8")
+    except Exception:
+        pass
+
+    w, h = configure_xrandr()
+    profile = compute_profile(w, h)
+    log(f"selected profile={profile}")
+
+    apply_x11_dpi(profile["dpi"])
+    update_live_calamares(profile["cal_w"], profile["cal_h"], profile["font_pt"])
+    write_env_file(profile)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        log(f"fatal fallback: {exc}")
+        try:
+            write_env_file(compute_profile(800, 600))
+        except Exception:
+            pass
+        sys.exit(0)

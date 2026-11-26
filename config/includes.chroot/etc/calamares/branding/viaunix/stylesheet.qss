@@ -1,0 +1,45 @@
+/* ViaUnix - Folha de estilo compacta do Calamares.
+ * Garante que todas as telas (inclusive Particoes e Resumo com o botao Instalar)
+ * caibam confortavelmente em resolucoes baixas (640x480, 800x600, 1024x768)
+ * e em placas de video sem driver dedicado.
+ */
+
+QWidget {
+    /* VIAUNIX_BASE_FONT */ font-size: 9pt;
+}
+
+#sidebarApp {
+    min-width: 150px;
+    max-width: 185px;
+}
+
+#logoApp {
+    max-height: 56px;
+    max-width: 56px;
+    margin: 6px auto 4px auto;
+    padding: 0px;
+}
+
+QListView#sidebarMenuApp {
+    padding: 2px 4px;
+}
+
+QListView#sidebarMenuApp::item {
+    padding: 3px 6px;
+}
+
+QPushButton {
+    padding: 4px 10px;
+    min-height: 22px;
+}
+
+QComboBox,
+QLineEdit {
+    padding: 2px 6px;
+    min-height: 22px;
+}
+
+QRadioButton,
+QCheckBox {
+    spacing: 6px;
+}

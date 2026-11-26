@@ -20,6 +20,17 @@ SCAN_FILE=$(mktemp)
 CONNECT_OUT=$(mktemp)
 trap 'rm -f "$SCAN_FILE" "$CONNECT_OUT"' EXIT
 
+SCREEN_W="${VIAUNIX_SCREEN_W:-800}"
+SCREEN_H="${VIAUNIX_SCREEN_H:-600}"
+clamp_w() { local max=$((SCREEN_W - 40)); [ "$max" -lt 360 ] && max=360; [ "$1" -gt "$max" ] && echo "$max" || echo "$1"; }
+clamp_h() { local max=$((SCREEN_H - 80)); [ "$max" -lt 240 ] && max=240; [ "$1" -gt "$max" ] && echo "$max" || echo "$1"; }
+
+DLG_W=$(clamp_w 440)
+LIST_W=$(clamp_w 600)
+LIST_H=$(clamp_h 380)
+MODE_W=$(clamp_w 480)
+MODE_H=$(clamp_h 260)
+
 zen() { zenity --title="$TITLE" "$@"; }
 nm() { sudo -n nmcli "$@"; }
 
@@ -57,14 +68,14 @@ wired_flow() {
         if wait_server; then
             return 0
         fi
-        zen --question --width=460 --ok-label="Tentar novamente" --cancel-label="Voltar" \
+        zen --question --width="$DLG_W" --ok-label="Tentar novamente" --cancel-label="Voltar" \
             --text="Sem comunicação com o servidor ($HEALTH_URL).\n\nConecte o cabo de rede e tente novamente." || return 2
     done
 }
 
 wifi_flow() {
     if ! has_wifi; then
-        zen --error --width=440 --text="Nenhum adaptador Wi-Fi foi detectado neste computador.\n\nUse a conexão por cabo de rede."
+        zen --error --width="$DLG_W" --text="Nenhum adaptador Wi-Fi foi detectado neste computador.\n\nUse a conexão por cabo de rede."
         return 2
     fi
 
@@ -87,7 +98,7 @@ wifi_flow() {
         rows+=("[ Atualizar lista ]" "" "" "[ Rede oculta... ]" "" "")
 
         local choice
-        choice=$(zen --list --width=700 --height=460 \
+        choice=$(zen --list --width="$LIST_W" --height="$LIST_H" \
             --text="Selecione a rede Wi-Fi para conectar este computador:" \
             --column="Rede (SSID)" --column="Sinal" --column="Segurança" "${rows[@]}") || return 2
 
@@ -95,17 +106,17 @@ wifi_flow() {
         case "$choice" in
             "[ Atualizar lista ]") continue ;;
             "[ Rede oculta... ]")
-                choice=$(zen --entry --text="Nome da rede oculta (SSID):") || continue
+                choice=$(zen --entry --width="$DLG_W" --text="Nome da rede oculta (SSID):") || continue
                 [ -n "$choice" ] || continue
                 hidden=1
-                if zen --question --ok-label="Sim" --cancel-label="Não" --text="A rede \"$choice\" possui senha?"; then
+                if zen --question --width="$DLG_W" --ok-label="Sim" --cancel-label="Não" --text="A rede \"$choice\" possui senha?"; then
                     need_pass=1
                 fi
                 ;;
             *)
                 case "${secmap[$choice]:-}" in
                     *802.1X*)
-                        zen --warning --width=480 --text="A rede \"$choice\" usa autenticação corporativa (802.1X), que não é suportada neste assistente.\n\nEscolha outra rede ou use o cabo de rede."
+                        zen --warning --width="$DLG_W" --text="A rede \"$choice\" usa autenticação corporativa (802.1X), que não é suportada neste assistente.\n\nEscolha outra rede ou use o cabo de rede."
                         continue
                         ;;
                     ""|"--") need_pass=0 ;;
@@ -115,7 +126,7 @@ wifi_flow() {
         esac
 
         if [ "$need_pass" = 1 ]; then
-            pass=$(zen --entry --hide-text --text="Digite a senha da rede \"$choice\":") || continue
+            pass=$(zen --entry --width="$DLG_W" --hide-text --text="Digite a senha da rede \"$choice\":") || continue
         fi
 
         if connect_wifi "$choice" "$pass" "$hidden"; then
@@ -123,17 +134,17 @@ wifi_flow() {
                 return 0
             fi
             nm connection delete id "$choice" >/dev/null 2>&1
-            zen --error --width=480 --text="Conectado à rede \"$choice\", mas sem comunicação com o servidor.\n\nVerifique se esta rede tem acesso ao servidor ou escolha outra."
+            zen --error --width="$DLG_W" --text="Conectado à rede \"$choice\", mas sem comunicação com o servidor.\n\nVerifique se esta rede tem acesso ao servidor ou escolha outra."
         else
             nm connection delete id "$choice" >/dev/null 2>&1
-            zen --error --no-markup --width=480 \
+            zen --error --no-markup --width="$DLG_W" \
                 --text="Não foi possível conectar a \"$choice\".\n\nVerifique a senha e o sinal da rede.\n\n$(tail -n 1 "$CONNECT_OUT")"
         fi
     done
 }
 
 while true; do
-    mode=$(zen --list --radiolist --width=520 --height=300 \
+    mode=$(zen --list --radiolist --width="$MODE_W" --height="$MODE_H" \
         --text="<b>Bem-vindo ao instalador do ViaUnix</b>\n\nEste computador precisa de acesso à rede para ser registrado no servidor.\nComo ele será conectado?" \
         --column="Escolha" --column="Valor" --column="Conexão" \
         TRUE cabeada "Cabo de rede (Ethernet)" \

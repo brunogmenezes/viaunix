@@ -2,17 +2,18 @@
 componentName: viaunix
 
 welcomeStyleCalamares: true
-welcomeExpandingLogo: true
-windowExpanding: fullscreen
+welcomeExpandingLogo: false
+windowExpanding: noexpand
+windowSize: 780px,500px
 windowPlacement: center
 
 strings:
     productName:         ViaUnix
     shortProductName:    ViaUnix
-    version:             1.2.2
-    shortVersion:        1.2.2
-    versionedName:       ViaUnix 1.2.2
-    shortVersionedName:  ViaUnix 1.2.2
+    version:             1.2.3
+    shortVersion:        1.2.3
+    versionedName:       ViaUnix 1.2.3
+    shortVersionedName:  ViaUnix 1.2.3
     bootloaderEntryName: ViaUnix
     productUrl:          https://github.com/brunogmenezes/viaunix
     supportUrl:          https://github.com/brunogmenezes/viaunix/issues

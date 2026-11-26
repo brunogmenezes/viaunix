@@ -1,7 +1,7 @@
-PRETTY_NAME="ViaUnix 1.2.2 (base Debian 13)"
+PRETTY_NAME="ViaUnix 1.2.3 (base Debian 13)"
 NAME="ViaUnix"
-VERSION_ID="1.2.2"
-VERSION="1.2.2 (Trixie)"
+VERSION_ID="1.2.3"
+VERSION="1.2.3 (Trixie)"
 VERSION_CODENAME=trixie
 ID=viaunix
 ID_LIKE=debian

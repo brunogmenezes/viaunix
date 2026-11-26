@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.2.3] - 2026-11-26
+
+### Corrigido
+- Instalador (ISO): ajuste adaptativo de vídeo/DPI (`viaunix-installer-display`) e layout compacto do Calamares (`windowExpanding: noexpand`, `windowSize: 780px,500px`, `stylesheet.qss`, `welcome.png` 180×180, Openbox centralizado com barra de título arrastável + `Alt+arrastar` sem minimizar e sem maximizar) garantindo que todas as telas e o botão final **Instalar** fiquem sempre visíveis mesmo em placas de vídeo sem driver dedicado (800×600 / 640×480) ou com EDID/DPI anômalo; incluídos `firmware-amd-graphics` e `firmware-nvidia-graphics` na ISO. Exige gerar ISO nova.
+- Release `v1.2.3` (`VERSION`, `viaunix-release` 1.2.3, `os-release`, `issue`, `branding.desc`).
+
 ## [1.2.2] - 2026-11-26
 
 ### Corrigido

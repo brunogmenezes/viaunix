@@ -12,6 +12,7 @@ Retorno:
   2 = voltar para selecao de rede (cabo/Wi-Fi)
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -100,11 +101,18 @@ class DiagWindow(Gtk.Window):
 
         self.get_style_context().add_class("viaunix-diag")
         self.set_position(Gtk.WindowPosition.CENTER)
-        self.set_default_size(520, 300)
-        self.set_resizable(False)
-        self.set_border_width(22)
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        screen_w = int(os.environ.get("VIAUNIX_SCREEN_W", "800") or 800)
+        screen_h = int(os.environ.get("VIAUNIX_SCREEN_H", "600") or 600)
+        win_w = min(500, max(400, screen_w - 40))
+        win_h = min(290, max(230, screen_h - 60))
+        compact = screen_h <= 600
+
+        self.set_default_size(win_w, win_h)
+        self.set_resizable(True)
+        self.set_border_width(14 if compact else 20)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10 if compact else 14)
         self.add(root)
 
         title = Gtk.Label(label="Diagnóstico Rápido de Rede")
@@ -114,21 +122,24 @@ class DiagWindow(Gtk.Window):
 
         subtitle = Gtk.Label(label="Verificando conectividade antes de iniciar a instalação:")
         subtitle.set_xalign(0.0)
+        subtitle.set_line_wrap(True)
         root.pack_start(subtitle, False, False, 0)
 
         self.rows: list[Gtk.Label] = []
-        steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6 if compact else 8)
         for label_text, _host in TESTS:
             lbl = Gtk.Label()
             lbl.set_xalign(0.0)
+            lbl.set_line_wrap(True)
             lbl.get_style_context().add_class("step-row")
             lbl.set_markup(f'<span foreground="#93aed6">○</span>  <b>{label_text}</b>  <span foreground="#93aed6">aguardando...</span>')
             steps_box.pack_start(lbl, False, False, 0)
             self.rows.append(lbl)
-        root.pack_start(steps_box, True, True, 6)
+        root.pack_start(steps_box, True, True, 4)
 
         self.summary_lbl = Gtk.Label(label="Executando testes...")
         self.summary_lbl.set_xalign(0.0)
+        self.summary_lbl.set_line_wrap(True)
         root.pack_start(self.summary_lbl, False, False, 0)
 
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)

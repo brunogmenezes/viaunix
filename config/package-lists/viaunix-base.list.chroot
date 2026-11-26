@@ -28,6 +28,8 @@ efibootmgr
 # --- Firmware e microcode (hardware) ---
 firmware-linux
 firmware-misc-nonfree
+firmware-amd-graphics
+firmware-nvidia-graphics
 firmware-iwlwifi
 firmware-realtek
 firmware-atheros

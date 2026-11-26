@@ -11,8 +11,10 @@ Presentation {
         Rectangle { anchors.fill: parent; color: "#0e284e" }
         Text {
             anchors.centerIn: parent
+            width: parent.width - 40
+            wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
-            color: "white"; font.pixelSize: 26
+            color: "white"; font.pixelSize: 20
             text: "Bem-vindo ao ViaUnix\nUm sistema estável para o seu trabalho."
         }
     }
@@ -20,8 +22,10 @@ Presentation {
         Rectangle { anchors.fill: parent; color: "#0e284e" }
         Text {
             anchors.centerIn: parent
+            width: parent.width - 40
+            wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
-            color: "white"; font.pixelSize: 26
+            color: "white"; font.pixelSize: 20
             text: "LibreOffice completo, OpenVPN e firewall\njá instalados e configurados."
         }
     }
@@ -29,8 +33,10 @@ Presentation {
         Rectangle { anchors.fill: parent; color: "#0e284e" }
         Text {
             anchors.centerIn: parent
+            width: parent.width - 40
+            wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
-            color: "white"; font.pixelSize: 26
+            color: "white"; font.pixelSize: 20
             text: "Segurança em primeiro lugar.\nO sistema está sendo instalado..."
         }
     }

@@ -16,6 +16,10 @@
     <center>yes</center>
     <monitor>Primary</monitor>
   </placement>
+  <theme>
+    <titleLayout>L</titleLayout>
+    <keepBorder>yes</keepBorder>
+  </theme>
   <desktops>
     <number>1</number>
     <firstdesk>1</firstdesk>
@@ -23,6 +27,15 @@
   </desktops>
   <keyboard />
   <mouse>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Press">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+      <mousebind button="A-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+    </context>
     <context name="Client">
       <mousebind button="Left" action="Press">
         <action name="Focus"/>
@@ -37,8 +50,12 @@
   </mouse>
   <applications>
     <application class="calamares" type="normal">
-      <decor>no</decor>
-      <maximized>true</maximized>
+      <decor>yes</decor>
+      <maximized>no</maximized>
+      <position force="yes">
+        <x>center</x>
+        <y>center</y>
+      </position>
       <focus>yes</focus>
     </application>
     <application type="dialog">
