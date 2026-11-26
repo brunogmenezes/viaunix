@@ -16,34 +16,23 @@ HEALTH_URL="${PROVISION_URL%/api/provision}/health"
 REQUIRE_SERVER=true
 
 TITLE="Instalação do ViaUnix"
-ICON=/usr/share/pixmaps/viaunix-logo.png
 SCAN_FILE=$(mktemp)
 CONNECT_OUT=$(mktemp)
 trap 'rm -f "$SCAN_FILE" "$CONNECT_OUT"' EXIT
 
-zen() { zenity --title="$TITLE" --window-icon="$ICON" "$@"; }
+zen() { zenity --title="$TITLE" "$@"; }
 nm() { sudo -n nmcli "$@"; }
 
-server_ok() { curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; }
+server_ok() { curl -fsS --max-time 4 "$HEALTH_URL" >/dev/null 2>&1; }
 
 wait_server() {
     [ "$REQUIRE_SERVER" = true ] || return 0
     local i
-    for i in $(seq 1 10); do
+    for i in 1 2 3 4 5; do
         server_ok && return 0
-        sleep 2
+        sleep 1
     done
     return 1
-}
-
-# Executa uma funcao em segundo plano mostrando barra de progresso; devolve o status dela
-run_with_progress() {
-    local text="$1"; shift
-    "$@" &
-    local pid=$!
-    ( while kill -0 "$pid" 2>/dev/null; do sleep 0.5; done; echo 100 ) \
-        | zen --progress --pulsate --auto-close --no-cancel --text="$text" >/dev/null 2>&1
-    wait "$pid"
 }
 
 has_wifi() { nm -t -f TYPE device 2>/dev/null | grep -qx 'wifi'; }
@@ -65,11 +54,11 @@ connect_wifi() {  # ssid senha oculta(0/1)
 
 wired_flow() {
     while true; do
-        if run_with_progress "Verificando o cabo de rede e a comunicação com o servidor..." wait_server; then
+        if wait_server; then
             return 0
         fi
         zen --question --width=460 --ok-label="Tentar novamente" --cancel-label="Voltar" \
-            --text="Sem comunicação com o servidor.\n\nConecte o cabo de rede e tente novamente." || return 2
+            --text="Sem comunicação com o servidor ($HEALTH_URL).\n\nConecte o cabo de rede e tente novamente." || return 2
     done
 }
 
@@ -80,7 +69,7 @@ wifi_flow() {
     fi
 
     while true; do
-        run_with_progress "Procurando redes Wi-Fi..." scan_wifi
+        scan_wifi
 
         local -a rows=()
         local -A seen=() secmap=()
@@ -129,8 +118,8 @@ wifi_flow() {
             pass=$(zen --entry --hide-text --text="Digite a senha da rede \"$choice\":") || continue
         fi
 
-        if run_with_progress "Conectando a \"$choice\"..." connect_wifi "$choice" "$pass" "$hidden"; then
-            if run_with_progress "Verificando a comunicação com o servidor..." wait_server; then
+        if connect_wifi "$choice" "$pass" "$hidden"; then
+            if wait_server; then
                 return 0
             fi
             nm connection delete id "$choice" >/dev/null 2>&1

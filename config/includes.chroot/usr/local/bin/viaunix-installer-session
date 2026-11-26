@@ -15,10 +15,11 @@ if ! /usr/local/bin/viaunix-installer-network; then
     exit 0
 fi
 
-# Passo 2: instalador (Calamares) - renderizacao software evita travamentos em VMs/GPUs sem 3D
-export QT_XCB_GL_INTEGRATION=none
-export QSG_RHI_BACKEND=software
-sudo -E calamares
+# Passo 2: instalador (Calamares)
+if ! sudo -E calamares > /tmp/calamares.log 2>&1; then
+    zenity --error --no-markup --width=600 --title="Erro no instalador ViaUnix" \
+        --text="O instalador encerrou com erro:\n\n$(tail -n 15 /tmp/calamares.log)" 2>/dev/null || true
+fi
 
 # Ao encerrar o instalador (concluído ou cancelado) reinicia o computador.
 sudo systemctl reboot

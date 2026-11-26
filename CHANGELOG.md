@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- Instalador (ISO): removido pipe `zenity --progress` (travava em GTK4/Debian 13) e flags `QT_XCB_GL_INTEGRATION`/`QSG_RHI_BACKEND` que bloqueavam o Calamares após o assistente de rede; erros do Calamares agora exibem alerta antes do reboot. Exige gerar ISO nova.
 - Instalador (ISO): substituído `matchbox-window-manager` por `openbox` travado (`/etc/viaunix/openbox-installer.xml`) + `QT_XCB_GL_INTEGRATION=none` (corrige congelamento e rastros pretos nos diálogos modais `Particionando...` do Calamares) e adicionado `partition.conf` com `Formatar o disco` pré-selecionado. Exige gerar ISO nova.
 - `viaunix-firewall` 1.0.3: `/etc/nftables.conf` deixa de ser *conffile* (conflitava com o desvio do `nftables` e gerava a pergunta "Deleted since installation" no `apt upgrade`). O firewall é agora sempre reaplicado nas atualizações.
 - MeshCentral: alterado para `WANonly: true` / `LANonly: false` (em modo LAN o agente gerava `MeshServer=local` via multicast e não alcançava o servidor através de NAT/VLAN/VPN).
