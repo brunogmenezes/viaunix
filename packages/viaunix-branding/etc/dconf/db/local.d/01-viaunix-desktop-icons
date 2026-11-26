@@ -1,3 +1,3 @@
-# Habilita icones na area de trabalho (DING) no GNOME
+# Habilita icones na area de trabalho (DING) e extensao ViaUnix VPN no GNOME
 [org/gnome/shell]
-enabled-extensions=['ding@rastersoft.com']
+enabled-extensions=['ding@rastersoft.com', 'viaunix-vpn@viaunix.local']

@@ -4,5 +4,14 @@ if [ "$1" = configure ]; then
     [ -f /etc/openvpn/client/viaunix.conf ] && chmod 600 /etc/openvpn/client/viaunix.conf || true
     [ -f /etc/viaunix/vpn-keypass ] && chmod 600 /etc/viaunix/vpn-keypass || true
     [ -f /etc/sudoers.d/viaunix-vpn ] && chmod 440 /etc/sudoers.d/viaunix-vpn || true
+
+    # Habilita a extensao no GDM (tela de login e bloqueio)
+    dconf update || true
+    if [ -x /usr/share/gdm/generate-config ]; then
+        /usr/share/gdm/generate-config || true
+    fi
+    if [ -d /usr/share/gdm/dconf ] && [ -f /var/lib/gdm3/greeter-dconf-defaults ]; then
+        dconf compile /var/lib/gdm3/greeter-dconf-defaults /usr/share/gdm/dconf || true
+    fi
 fi
 exit 0

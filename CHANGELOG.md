@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.0.3] - 2026-11-26
+
+### Corrigido
+- `viaunix-vpn` 1.2.0 + `viaunix-branding` 1.0.4: substituído o autostart externo no GDM (ocultado pelo compositor do GNOME 48) por uma extensão nativa do GNOME Shell (`viaunix-vpn@viaunix.local`) com `"session-modes": ["gdm", "unlock-dialog", "user"]`, exibindo o menu **VPN** diretamente na barra superior da tela de login (GDM), da tela de bloqueio e do desktop.
+- Release `v1.0.3` (`VERSION`, `viaunix-release` 1.0.3, `os-release`, `issue`, `branding.desc`).
+
 ## [1.0.2] - 2026-11-26
 
 ### Adicionado

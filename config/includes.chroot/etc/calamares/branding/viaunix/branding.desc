@@ -9,10 +9,10 @@ windowPlacement: center
 strings:
     productName:         ViaUnix
     shortProductName:    ViaUnix
-    version:             1.0.2
-    shortVersion:        1.0.2
-    versionedName:       ViaUnix 1.0.2
-    shortVersionedName:  ViaUnix 1.0.2
+    version:             1.0.3
+    shortVersion:        1.0.3
+    versionedName:       ViaUnix 1.0.3
+    shortVersionedName:  ViaUnix 1.0.3
     bootloaderEntryName: ViaUnix
     productUrl:          https://github.com/brunogmenezes/viaunix
     supportUrl:          https://github.com/brunogmenezes/viaunix/issues

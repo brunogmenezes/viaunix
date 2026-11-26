@@ -18,7 +18,8 @@ fi
 # Marca como confiavel para o GNOME DING exibir o icone e abrir sem aviso
 gio set "$DEST" metadata::trusted true 2>/dev/null || true
 
-# Garante a extensao de icones na area de trabalho ativa tambem em usuarios ja existentes
+# Garante as extensoes de icones e VPN ativas tambem em usuarios ja existentes
 if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions enable ding@rastersoft.com 2>/dev/null || true
+    gnome-extensions enable viaunix-vpn@viaunix.local 2>/dev/null || true
 fi

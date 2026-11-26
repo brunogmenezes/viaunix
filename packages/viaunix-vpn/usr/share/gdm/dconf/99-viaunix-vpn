@@ -1,0 +1,4 @@
+# Habilita a extensao ViaUnix VPN na tela de login do GDM
+[org/gnome/shell]
+disable-user-extensions=false
+enabled-extensions=['viaunix-vpn@viaunix.local']
