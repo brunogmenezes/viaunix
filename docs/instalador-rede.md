@@ -9,7 +9,8 @@ Ao iniciar a ISO, antes do Calamares, o instalador mostra um assistente de rede.
    - Lista as redes disponíveis (SSID, sinal e segurança), com opções "Atualizar lista" e "Rede oculta...".
    - Pede a senha (campo oculto) e conecta pelo NetworkManager.
    - Valida a comunicação com o servidor. Se a rede conectar mas não alcançar o servidor, ou se a senha estiver errada, mostra o erro e volta à lista.
-4. **Avança** para o Calamares. A rede configurada é copiada para o sistema instalado pelo módulo `networkcfg`, então o notebook já inicia com Wi-Fi e consegue autenticar na API.
+4. **Diagnóstico rápido (`viaunix-installer-diag`):** testa em sequência `ping jupiter.com.br`, `ping vpn.jupiter.com.br` e `ping 8.8.8.8`, exibindo check verde (`✔`) ou X vermelho (`✖`) em cada passo; se todos passarem, continua automaticamente para o Calamares (ou permite voltar/tentar novamente em caso de falha).
+5. **Avança** para o Calamares. A rede configurada é copiada para o sistema instalado pelo módulo `networkcfg`, então o notebook já inicia com Wi-Fi e consegue autenticar na API.
 
 Cancelar o assistente reinicia o computador (como cancelar o Calamares).
 

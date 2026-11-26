@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""ViaUnix - Tela de diagnostico rapido de rede no instalador (apos cabo/Wi-Fi).
+
+Executa em sequencia:
+  1. ping jupiter.com.br
+  2. ping vpn.jupiter.com.br
+  3. ping 8.8.8.8
+
+Exibe check verde (✔) para sucesso e X vermelho (✖) para falha.
+Retorno:
+  0 = continuar para o Calamares
+  2 = voltar para selecao de rede (cabo/Wi-Fi)
+"""
+
+import re
+import subprocess
+import sys
+import threading
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+
+TESTS = [
+    ("ping jupiter.com.br", "jupiter.com.br"),
+    ("ping vpn.jupiter.com.br", "vpn.jupiter.com.br"),
+    ("ping 8.8.8.8", "8.8.8.8"),
+]
+
+CSS = b"""
+window.viaunix-diag {
+    background-color: #0e284e;
+    border: 2px solid #2b5fa8;
+    border-radius: 12px;
+}
+label {
+    color: #eef4ff;
+}
+label.title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ff9f1a;
+}
+label.step-row {
+    font-size: 14px;
+    padding: 4px 0;
+}
+button.primary {
+    background-image: none;
+    background-color: #2ecc71;
+    color: #081529;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+}
+button.secondary {
+    background-image: none;
+    background-color: #1c4a8a;
+    color: #ffffff;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+}
+"""
+
+
+def run_ping(host: str) -> tuple[bool, str]:
+    try:
+        res = subprocess.run(
+            ["/usr/bin/ping", "-c", "1", "-W", "3", host],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=5,
+        )
+        if res.returncode == 0:
+            m = re.search(r"time=([0-9.]+)\s*ms", res.stdout)
+            detail = f"OK ({m.group(1)} ms)" if m else "OK"
+            return True, detail
+        return False, "sem resposta"
+    except Exception:
+        return False, "erro ao testar"
+
+
+class DiagWindow(Gtk.Window):
+    def __init__(self) -> None:
+        super().__init__(title="Diagnóstico de Rede — ViaUnix")
+        self.exit_code = 2
+        self._auto_timer = None
+        self._countdown = 3
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        self.get_style_context().add_class("viaunix-diag")
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_default_size(520, 300)
+        self.set_resizable(False)
+        self.set_border_width(22)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        self.add(root)
+
+        title = Gtk.Label(label="Diagnóstico Rápido de Rede")
+        title.get_style_context().add_class("title")
+        title.set_xalign(0.0)
+        root.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(label="Verificando conectividade antes de iniciar a instalação:")
+        subtitle.set_xalign(0.0)
+        root.pack_start(subtitle, False, False, 0)
+
+        self.rows: list[Gtk.Label] = []
+        steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for label_text, _host in TESTS:
+            lbl = Gtk.Label()
+            lbl.set_xalign(0.0)
+            lbl.get_style_context().add_class("step-row")
+            lbl.set_markup(f'<span foreground="#93aed6">○</span>  <b>{label_text}</b>  <span foreground="#93aed6">aguardando...</span>')
+            steps_box.pack_start(lbl, False, False, 0)
+            self.rows.append(lbl)
+        root.pack_start(steps_box, True, True, 6)
+
+        self.summary_lbl = Gtk.Label(label="Executando testes...")
+        self.summary_lbl.set_xalign(0.0)
+        root.pack_start(self.summary_lbl, False, False, 0)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        root.pack_end(btn_box, False, False, 0)
+
+        self.btn_back = Gtk.Button(label="Voltar")
+        self.btn_back.get_style_context().add_class("secondary")
+        self.btn_back.connect("clicked", self.on_back)
+        btn_box.pack_start(self.btn_back, False, False, 0)
+
+        self.btn_retry = Gtk.Button(label="Tentar novamente")
+        self.btn_retry.get_style_context().add_class("secondary")
+        self.btn_retry.connect("clicked", self.on_retry)
+        btn_box.pack_start(self.btn_retry, False, False, 0)
+
+        self.btn_next = Gtk.Button(label="Continuar instalação")
+        self.btn_next.get_style_context().add_class("primary")
+        self.btn_next.connect("clicked", self.on_continue)
+        btn_box.pack_end(self.btn_next, False, False, 0)
+
+        self.connect("destroy", Gtk.main_quit)
+        self.start_tests()
+
+    def _cancel_timer(self) -> None:
+        if self._auto_timer:
+            GLib.source_remove(self._auto_timer)
+            self._auto_timer = None
+
+    def start_tests(self) -> None:
+        self._cancel_timer()
+        self.btn_back.set_sensitive(False)
+        self.btn_retry.set_sensitive(False)
+        self.btn_next.set_sensitive(False)
+        self.btn_next.set_label("Continuar instalação")
+        self.summary_lbl.set_markup('<span foreground="#93aed6">Executando testes...</span>')
+
+        for idx, (label_text, _host) in enumerate(TESTS):
+            self.rows[idx].set_markup(
+                f'<span foreground="#93aed6">○</span>  <b>{label_text}</b>  <span foreground="#93aed6">aguardando...</span>'
+            )
+
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _worker(self) -> None:
+        all_ok = True
+        for idx, (label_text, host) in enumerate(TESTS):
+            GLib.idle_add(self._set_running, idx, label_text)
+            ok, detail = run_ping(host)
+            if not ok:
+                all_ok = False
+            GLib.idle_add(self._set_result, idx, label_text, ok, detail)
+        GLib.idle_add(self._finish, all_ok)
+
+    def _set_running(self, idx: int, label_text: str) -> bool:
+        self.rows[idx].set_markup(
+            f'<span foreground="#ff9f1a">◐</span>  <b>{label_text}</b>  <span foreground="#ff9f1a">testando...</span>'
+        )
+        return False
+
+    def _set_result(self, idx: int, label_text: str, ok: bool, detail: str) -> bool:
+        if ok:
+            self.rows[idx].set_markup(
+                f'<span foreground="#2ecc71" weight="bold">✔</span>  <b>{label_text}</b>  <span foreground="#2ecc71">{detail}</span>'
+            )
+        else:
+            self.rows[idx].set_markup(
+                f'<span foreground="#e74c3c" weight="bold">✖</span>  <b>{label_text}</b>  <span foreground="#e74c3c">{detail}</span>'
+            )
+        return False
+
+    def _finish(self, all_ok: bool) -> bool:
+        self.btn_back.set_sensitive(True)
+        self.btn_retry.set_sensitive(True)
+        self.btn_next.set_sensitive(True)
+
+        if all_ok:
+            self._countdown = 3
+            self.summary_lbl.set_markup(
+                '<span foreground="#2ecc71" weight="bold">✔ Todos os testes passaram! Continuando em 3s...</span>'
+            )
+            self._auto_timer = GLib.timeout_add_seconds(1, self._tick_continue)
+        else:
+            self.btn_next.set_label("Continuar mesmo assim")
+            self.summary_lbl.set_markup(
+                '<span foreground="#e74c3c" weight="bold">✖ Um ou mais testes falharam. Verifique a rede ou tente novamente.</span>'
+            )
+        return False
+
+    def _tick_continue(self) -> bool:
+        self._countdown -= 1
+        if self._countdown <= 0:
+            self._auto_timer = None
+            self.on_continue(None)
+            return False
+        self.summary_lbl.set_markup(
+            f'<span foreground="#2ecc71" weight="bold">✔ Todos os testes passaram! Continuando em {self._countdown}s...</span>'
+        )
+        return True
+
+    def on_back(self, _w) -> None:
+        self._cancel_timer()
+        self.exit_code = 2
+        self.close()
+
+    def on_retry(self, _w) -> None:
+        self.start_tests()
+
+    def on_continue(self, _w) -> None:
+        self._cancel_timer()
+        self.exit_code = 0
+        self.close()
+
+
+def main() -> int:
+    win = DiagWindow()
+    win.show_all()
+    Gtk.main()
+    return win.exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

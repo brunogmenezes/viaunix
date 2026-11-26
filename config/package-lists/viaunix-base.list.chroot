@@ -17,6 +17,7 @@ network-manager
 wpasupplicant
 rfkill
 curl
+iputils-ping
 
 # --- Boot/instalação no disco ---
 grub-efi-amd64

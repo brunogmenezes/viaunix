@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.0.5] - 2026-11-26
+
+### Adicionado
+- Instalador (ISO): tela de **Diagnóstico Rápido de Rede** (`viaunix-installer-diag`) após escolher Cabo/Wi-Fi, testando `ping jupiter.com.br`, `ping vpn.jupiter.com.br` e `ping 8.8.8.8` com check verde (`✔`) / X vermelho (`✖`) em tempo real antes de abrir o Calamares; incluído `iputils-ping` na ISO.
+- Release `v1.0.5` (`VERSION`, `viaunix-release` 1.0.5, `os-release`, `issue`, `branding.desc`).
+
 ## [1.0.4] - 2026-11-26
 
 ### Corrigido

@@ -145,5 +145,9 @@ while true; do
         wifi)    wifi_flow;  rc=$? ;;
         *)       exit 1 ;;
     esac
-    [ "$rc" -eq 0 ] && exit 0
+    if [ "$rc" -eq 0 ]; then
+        # Diagnostico rapido (ping jupiter.com.br, vpn.jupiter.com.br, 8.8.8.8)
+        /usr/local/bin/viaunix-installer-diag
+        [ "$?" -eq 0 ] && exit 0
+    fi
 done
