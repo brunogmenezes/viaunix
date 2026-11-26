@@ -9,7 +9,7 @@ live-config
 live-config-systemd
 calamares
 calamares-settings-debian
-matchbox-window-manager
+openbox
 x11-xserver-utils
 xorg
 zenity

@@ -1,8 +1,12 @@
 #!/bin/sh
 # ViaUnix - sessão exclusiva do instalador (executada pelo GDM no modo Live).
-# Sem desktop, sem barra, sem terminal: apenas o Calamares em tela cheia.
+# Sem desktop, sem barra, sem terminal: apenas o assistente de rede e o Calamares.
 xset s off -dpms 2>/dev/null || true
-matchbox-window-manager -use_titlebar no -use_cursor yes &
+xsetroot -solid "#0e284e" 2>/dev/null || true
+
+# Openbox com configuracao travada: suporte completo a dialogos modais do Qt/Calamares
+openbox --config-file /etc/viaunix/openbox-installer.xml &
+sleep 1
 
 # Passo 1: conexao de rede (cabeada ou Wi-Fi) com comunicacao com o servidor.
 # Se o usuario cancelar o assistente, o computador reinicia (volta ao inicio).
@@ -11,7 +15,9 @@ if ! /usr/local/bin/viaunix-installer-network; then
     exit 0
 fi
 
-# Passo 2: instalador (Calamares) - precisa de root; o usuario live tem sudo sem senha.
+# Passo 2: instalador (Calamares) - renderizacao software evita travamentos em VMs/GPUs sem 3D
+export QT_XCB_GL_INTEGRATION=none
+export QSG_RHI_BACKEND=software
 sudo -E calamares
 
 # Ao encerrar o instalador (concluído ou cancelado) reinicia o computador.

@@ -6,6 +6,7 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 ## [Não lançado]
 
 ### Corrigido
+- Instalador (ISO): substituído `matchbox-window-manager` por `openbox` travado (`/etc/viaunix/openbox-installer.xml`) + `QT_XCB_GL_INTEGRATION=none` (corrige congelamento e rastros pretos nos diálogos modais `Particionando...` do Calamares) e adicionado `partition.conf` com `Formatar o disco` pré-selecionado. Exige gerar ISO nova.
 - `viaunix-firewall` 1.0.3: `/etc/nftables.conf` deixa de ser *conffile* (conflitava com o desvio do `nftables` e gerava a pergunta "Deleted since installation" no `apt upgrade`). O firewall é agora sempre reaplicado nas atualizações.
 - MeshCentral: alterado para `WANonly: true` / `LANonly: false` (em modo LAN o agente gerava `MeshServer=local` via multicast e não alcançava o servidor através de NAT/VLAN/VPN).
 - MeshCentral + `viaunix-remote` 1.0.4: configura `agentPort: 8091` com TLS nativo (`agentPortTls: true`) para o `meshagent` (que exige `wss://`), mantendo a interface web em HTTP na `8090` (`tlsOffload: true`).
