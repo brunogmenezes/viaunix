@@ -5,6 +5,12 @@ Toda modificação no ViaUnix deve ser registrada aqui **no mesmo commit** que a
 
 ## [Não lançado]
 
+## [1.2.2] - 2026-11-26
+
+### Corrigido
+- `viaunix-agent` 1.2.2: executa `x11vnc` como o próprio usuário logado (`runuser -u <usuario> -- /usr/bin/env ...`) com `-auth guess` como fallback (corrige falha de cookie X11 em estações onde `XAUTHORITY` não era acessível como `root`).
+- Release `v1.2.2` (`VERSION`, `viaunix-release` 1.2.2, `os-release`, `issue`, `branding.desc`).
+
 ## [1.2.1] - 2026-11-26
 
 ### Corrigido
